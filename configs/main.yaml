@@ -1,0 +1,8 @@
+hydra:
+  job_logging:
+    formatters:
+      simple:
+        format: "%(asctime)s - %(levelname)s - %(message)s"
+
+info:
+  user: ${oc.env:USER,default_user}
