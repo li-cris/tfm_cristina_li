@@ -4,5 +4,11 @@ __pycache__/
 # Virtual environment directory
 /.venv/
 
+# Data directory
+/data/
+
+# PyTorch Lightning logs
+/lightning_logs/
+
 # Hydra outputs
 /outputs/

@@ -6,3 +6,7 @@ hydra:
 
 info:
   user: ${oc.env:USER,default_user}
+
+data:
+  data_dir: "data"
+  dataset_name: "norman"
