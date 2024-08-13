@@ -16,9 +16,9 @@ class PertData:
 
     The following are the [Gene Expression Omnibus](https://www.ncbi.nlm.nih.gov/geo/)
     accession numbers used:
-    - Dixit et al.: [GSE90063](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE90063)
-    - Adamson et al.: [GSE90546](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE90546)
-    - Norman et al.: [GSE133344](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE133344)
+    - Dixit et al., 2016: [GSE90063](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE90063)
+    - Adamson et al., 2016: [GSE90546](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE90546)
+    - Norman et al., 2019: [GSE133344](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE133344)
 
     The following are the DOIs of the corresponding publications:
     - Dixit et al., 2016: https://doi.org/10.1016/j.cell.2016.11.038
