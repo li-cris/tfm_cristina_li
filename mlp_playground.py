@@ -29,7 +29,6 @@ def train_and_test_mlp(cfg: DictConfig) -> None:
     pert_data = PertData(
         data_dir=f"{get_git_root()}/{cfg.data.data_dir}",
         dataset_name=cfg.data.dataset_name,
-        fix_labels=True,
     )
     pert_data.log_info()
 
@@ -39,7 +38,7 @@ def train_and_test_mlp(cfg: DictConfig) -> None:
 
     # Convert the perturbations vector first to a numerical categorical representation
     # and then to a PyTorch tensor
-    y = pd.factorize(values=pert_data.y)[0]
+    y = pd.factorize(values=pert_data.y_fixed)[0]
     y = torch.tensor(data=y, dtype=torch.long)
 
     # Convert the gene expression matrix to a PyTorch tensor
