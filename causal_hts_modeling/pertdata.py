@@ -33,9 +33,7 @@ class PertData:
     which genes were knocked out in each cell line).
     """
 
-    def __init__(
-        self, data_dir: str, dataset_name: str, fix_labels: bool = True
-    ) -> None:
+    def __init__(self, data_dir: str, dataset_name: str) -> None:
         """
         Initialize the PertData object.
 
@@ -43,16 +41,15 @@ class PertData:
             data_dir: The directory to save the data.
             dataset_name: The name of the dataset (supported: "dixit", "adamson",
                 "norman").
-            fix_labels: Whether to fix the perturbation labels. Default is True.
         """
         self.data_dir = data_dir
         self.dataset_name = dataset_name
         self.dataset_path = os.path.join(self.data_dir, dataset_name)
         self.dataset_data = None
-        self.fix_labels = fix_labels
         self.dataset_filtered = False
         self.X = None
         self.y = None
+        self.y_fixed = None
 
         if not os.path.exists(path=self.data_dir):
             log.info(f"Creating data directory: {self.data_dir}")
@@ -91,9 +88,7 @@ class PertData:
         self.y = self.dataset_data.obs["condition"]
 
         # Fix the perturbations labels
-        if self.fix_labels:
-            log.info("Fixing perturbation labels")
-            self._fix_perturbation_labels()
+        self._fix_perturbation_labels()
 
     def _fix_perturbation_labels(self) -> None:
         """
@@ -121,15 +116,14 @@ class PertData:
         modify these labels.
         """
         # Remove "ctrl+" and "+ctrl" matches
-        self.y = self.y.str.replace(pat="ctrl+", repl="")
-        self.y = self.y.str.replace(pat="+ctrl", repl="")
+        self.y_fixed = self.y.str.replace(pat="ctrl+", repl="")
+        self.y_fixed = self.y_fixed.str.replace(pat="+ctrl", repl="")
 
     def log_info(self) -> None:
         """Log information about the dataset."""
         log.info("Perturbation dataset information:")
         log.info(f"  Dataset name: {self.dataset_name}")
         log.info(f"  Dataset path: {self.dataset_path}")
-        log.info(f"  Labels fixed: {self.fix_labels}")
         log.info(f"  Dataset filtered: {self.dataset_filtered}")
         log.info(f"  Perturbations vector shape: {self.y.shape}")
         log.info(f"  Gene expression matrix shape: {self.X.shape}")
@@ -149,7 +143,7 @@ class PertData:
             negate: Whether to negate the pattern.
         """
         # Set up the filter mask
-        filter_mask = self.y.str.contains(pat=pattern)
+        filter_mask = self.y_fixed.str.contains(pat=pattern)
         if negate:
             filter_mask = ~filter_mask
         true_count = filter_mask.sum()
@@ -158,6 +152,7 @@ class PertData:
         # Apply the filter
         self.X = self.X[filter_mask, :]
         self.y = self.y[filter_mask]
+        self.y_fixed = self.y_fixed[filter_mask]
         self.dataset_filtered = True
 
         # Log the filter
@@ -170,12 +165,7 @@ class PertData:
 
         This method modifies the perturbations and gene expressions in place. It also
         requires the perturbation labels to be fixed.
-
-        Raises:
-            AssertionError: If perturbation labels are not fixed.
         """
-        assert self.fix_labels, "Perturbation labels must be fixed"
-
         # Filter out perturbations that are equal to "ctrl"
         self._filter_perturbations(pattern="^ctrl$", negate=True)
 
