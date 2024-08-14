@@ -14,6 +14,9 @@ class PertData:
     """
     Class for loading and processing perturbation data.
 
+    The gene expression matrix and different variants of the perturbations vector are
+    accessible through the `X`, `y`, `y_fixed`, and `y_binary` attributes.
+
     The following are the [Gene Expression Omnibus](https://www.ncbi.nlm.nih.gov/geo/)
     accession numbers used:
     - Dixit et al., 2016: [GSE90063](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE90063)
@@ -50,6 +53,7 @@ class PertData:
         self.X = None
         self.y = None
         self.y_fixed = None
+        self.y_binary = None
 
         if not os.path.exists(path=self.data_dir):
             log.info(f"Creating data directory: {self.data_dir}")
@@ -87,12 +91,13 @@ class PertData:
         self.X = self.dataset_data.X
         self.y = self.dataset_data.obs["condition"]
 
-        # Fix the perturbations labels
-        self._fix_perturbation_labels()
+        # Generate fixed and binary perturbations labels
+        self._generate_fixed_perturbation_labels()
+        self._generate_binary_perturbation_labels()
 
-    def _fix_perturbation_labels(self) -> None:
+    def _generate_fixed_perturbation_labels(self) -> None:
         """
-        Fix the perturbation labels.
+        Generate fixed perturbation labels.
 
         In the perturbation datasets, single-gene perturbations are expressed as:
         - ctrl+<gene1>
@@ -118,6 +123,15 @@ class PertData:
         # Remove "ctrl+" and "+ctrl" matches
         self.y_fixed = self.y.str.replace(pat="ctrl+", repl="")
         self.y_fixed = self.y_fixed.str.replace(pat="+ctrl", repl="")
+
+    def _generate_binary_perturbation_labels(self) -> None:
+        """
+        Generate binary perturbation labels.
+
+        We assign the label 0 to all control cells (that are labeled with "ctrl") and
+        the label 1 to all perturbed cells.
+        """
+        self.y_binary = (self.y_fixed != "ctrl").astype(int)
 
     def log_info(self) -> None:
         """Log information about the dataset."""

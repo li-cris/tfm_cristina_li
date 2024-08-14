@@ -8,5 +8,5 @@ info:
   user: ${oc.env:USER,default_user}
 
 data:
-  data_dir: "data"
+  data_dir: "data" # Path to the data directory, relative to the Git repository root
   dataset_name: "norman"
