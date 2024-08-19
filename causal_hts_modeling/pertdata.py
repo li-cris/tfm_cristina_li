@@ -15,7 +15,7 @@ class PertData:
     Class for loading and processing perturbation data.
 
     The gene expression matrix and different variants of the perturbations vector are
-    accessible through the `X`, `y`, `y_fixed`, and `y_binary` attributes.
+    accessible through the `X` and `y` attributes.
 
     The following are the [Gene Expression Omnibus](https://www.ncbi.nlm.nih.gov/geo/)
     accession numbers used:
@@ -30,7 +30,7 @@ class PertData:
 
     In general, in a perturbation dataset, we find N cell lines. Usually, one cell
     line remains unperturbed, and the others are cultivated separately (with different
-    perturbations, i.e., gene knockouts). The mRNA of usually a few thousand  cells of
+    perturbations, i.e., gene knockouts). The mRNA of usually a few thousand cells of
     each cell line is sequenced (using a single-cell RNA sequencing protocol),
     generating the gene expression profiles. Also, labels are available (i.e., we know
     which genes were knocked out in each cell line).
@@ -51,9 +51,7 @@ class PertData:
         self.dataset_data = None
         self.dataset_filtered = False
         self.X = None
-        self.y = None
-        self.y_fixed = None
-        self.y_binary = None
+        self.y = {"original": None, "fixed": None, "binary": None}
 
         if not os.path.exists(path=self.data_dir):
             log.info(f"Creating data directory: {self.data_dir}")
@@ -89,7 +87,7 @@ class PertData:
             filename=os.path.join(self.dataset_path, dataset_data_filename)
         )
         self.X = self.dataset_data.X
-        self.y = self.dataset_data.obs["condition"]
+        self.y["original"] = self.dataset_data.obs["condition"]
 
         # Generate fixed and binary perturbations labels
         self._generate_fixed_perturbation_labels()
@@ -121,8 +119,8 @@ class PertData:
         modify these labels.
         """
         # Remove "ctrl+" and "+ctrl" matches
-        self.y_fixed = self.y.str.replace(pat="ctrl+", repl="")
-        self.y_fixed = self.y_fixed.str.replace(pat="+ctrl", repl="")
+        self.y["fixed"] = self.y["original"].str.replace(pat="ctrl+", repl="")
+        self.y["fixed"] = self.y["fixed"].str.replace(pat="+ctrl", repl="")
 
     def _generate_binary_perturbation_labels(self) -> None:
         """
@@ -131,7 +129,7 @@ class PertData:
         We assign the label 0 to all control cells (that are labeled with "ctrl") and
         the label 1 to all perturbed cells.
         """
-        self.y_binary = (self.y_fixed != "ctrl").astype(int)
+        self.y["binary"] = (self.y["fixed"] != "ctrl").astype(int)
 
     def log_info(self) -> None:
         """Log information about the dataset."""
@@ -139,9 +137,7 @@ class PertData:
         log.info(f"  Dataset name: {self.dataset_name}")
         log.info(f"  Dataset path: {self.dataset_path}")
         log.info(f"  Dataset filtered: {self.dataset_filtered}")
-        log.info(f"  Perturbations vector shape: {self.y.shape}")
         log.info(f"  Gene expression matrix shape: {self.X.shape}")
-        log.info(f"  Different perturbations: {len(self.y.unique())}")
 
     def _filter_perturbations(self, pattern: str, negate: bool = False) -> None:
         """
@@ -157,7 +153,7 @@ class PertData:
             negate: Whether to negate the pattern.
         """
         # Set up the filter mask
-        filter_mask = self.y_fixed.str.contains(pat=pattern)
+        filter_mask = self.y["fixed"].str.contains(pat=pattern)
         if negate:
             filter_mask = ~filter_mask
         true_count = filter_mask.sum()
@@ -165,8 +161,8 @@ class PertData:
 
         # Apply the filter
         self.X = self.X[filter_mask, :]
-        self.y = self.y[filter_mask]
-        self.y_fixed = self.y_fixed[filter_mask]
+        for label_type, _ in self.y.items():
+            self.y[label_type] = self.y[label_type][filter_mask]
         self.dataset_filtered = True
 
         # Log the filter
