@@ -1,4 +1,4 @@
-# Causal Modeling of High-Throughput Screening Data
+# TransMet
 
 ## Getting Started
 
