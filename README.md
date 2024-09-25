@@ -1,8 +1,23 @@
 # TransMet
 
-## Getting Started
+_Linking Perturbation Experiments to Metabolic Graphs Reveals Key Regulatory Mechanisms in Cellular Metabolism_
 
-Begin by exploring the [`data_tutorial.ipynb`](data_tutorial.ipynb) to familiarize yourself with the perturbation data.
+## Git Hooks
+
+We use [pre-commit](https://pre-commit.com) to automatically run checks on every commmit.
+
+- Install the pre-commit package manager:
+    ```sh
+    pip3 install pre-commit
+    ```
+- Set up the git hook scripts specified in `.pre-commit-config.yaml`:
+    ```sh
+    pre-commit install
+    ```
+- Run against all files (optional):
+    ```sh
+    pre-commit run --all files
+    ```
 
 ## Package and Environment Management
 
@@ -42,3 +57,11 @@ Follow the steps below to set up your environment using the provided [`requireme
     ```sh
     deactivate
     ```
+
+## Code Linting
+
+To check the code for linting issues, run the following command from the root of the git repository:
+
+```sh
+ruff check .
+```
