@@ -6,6 +6,7 @@ appnope==0.1.4
 array_api_compat==1.8
 asttokens==2.4.1
 attrs==24.2.0
+beautifulsoup4==4.12.3
 certifi==2024.8.30
 cfgv==3.4.0
 charset-normalizer==3.3.2
@@ -20,6 +21,7 @@ filelock==3.16.1
 fonttools==4.54.1
 frozenlist==1.4.1
 fsspec==2024.9.0
+gdown==5.2.0
 h5py==3.11.0
 identify==2.6.1
 idna==3.10
@@ -60,6 +62,7 @@ pure_eval==0.2.3
 Pygments==2.18.0
 pynndescent==0.5.13
 pyparsing==3.1.4
+PySocks==1.7.1
 python-dateutil==2.9.0.post0
 pytorch-lightning==2.4.0
 pytz==2024.2
@@ -74,6 +77,7 @@ seaborn==0.13.2
 session_info==1.0.0
 setuptools==75.1.0
 six==1.16.0
+soupsieve==2.6
 stack-data==0.6.3
 statsmodels==0.14.3
 stdlib-list==0.10.0
