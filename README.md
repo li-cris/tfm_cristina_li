@@ -2,29 +2,20 @@
 
 _Linking Perturbation Experiments to Metabolic Graphs Reveals Key Regulatory Mechanisms in Cellular Metabolism_
 
-## Git Hooks
+## Compass
 
-We use [pre-commit](https://pre-commit.com) to automatically run checks on every commmit.
+A Docker setup to run [Compass](https://github.com/YosefLab/Compass), to characterize cellular metabolic states based on single-cell RNA sequencing and flux balance analysis, is provided in the separate repository [compass-docker](https://github.com/voges/compass-docker).
 
-- Install the pre-commit package manager:
-    ```sh
-    pip3 install pre-commit
-    ```
-- Set up the git hook scripts specified in `.pre-commit-config.yaml`:
-    ```sh
-    pre-commit install
-    ```
-- Run against all files (optional):
-    ```sh
-    pre-commit run --all files
-    ```
+## Software Development
 
-## Package and Environment Management
+For your reference, we develop on Ubuntu 22.04.5 LTS with Python 3.10.12.
+
+### Package and Environment Management
 
 We use [pip](https://pip.pypa.io) for package and environment management.
 Follow the steps below to set up your environment using the provided [`requirements.txt`](requirements.txt) file.
 
-### Setup Instructions
+#### Setup Instructions
 
 1. Create a virtual environment:
     ```sh
@@ -41,7 +32,7 @@ Follow the steps below to set up your environment using the provided [`requireme
     pip3 install -r requirements.txt
     ```
 
-### Additional Commands
+#### Additional Commands
 
 - Install additional packages:
     ```sh
@@ -58,10 +49,33 @@ Follow the steps below to set up your environment using the provided [`requireme
     deactivate
     ```
 
-## Code Linting
+### Git Hooks
 
-To check the code for linting issues, run the following command from the root of the git repository:
+We use [pre-commit](https://pre-commit.com) to automatically run checks on every commit.
 
-```sh
-ruff check .
-```
+1. Install the pre-commit package manager:
+    ```sh
+    pip3 install pre-commit
+    ```
+2. Set up the Git hook scripts specified in [`.pre-commit-config.yaml`](.pre-commit-config.yaml):
+    ```sh
+    pre-commit install
+    ```
+3. Run against all files (optional):
+    ```sh
+    pre-commit run --all files
+    ```
+
+### Code Linting
+
+We use [Ruff](https://github.com/astral-sh/ruff) to check the code for linting issues.
+
+1. Install Ruff:
+    ```sh
+    pip3 install ruff
+    ```
+
+2. Run the following command from the root of the Git repository:
+    ```sh
+    ruff check .
+    ```
