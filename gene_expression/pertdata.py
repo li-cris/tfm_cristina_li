@@ -4,6 +4,7 @@ import os
 from typing import Optional
 
 from anndata import AnnData
+import gdown
 import pandas as pd
 import scanpy as sc
 
@@ -53,7 +54,7 @@ class PertData:
 
         Args:
             name: The name of the dataset to load (supported: "dixit", "adamson",
-                "norman").
+                "norman", "replogle_k562_essential", "replogle_rpe1_essential").
             save_dir: The directory to save the data.
         """
         instance = cls()
@@ -70,26 +71,15 @@ def _load(dataset_name: str, dataset_dir: str) -> AnnData:
     """
     Load perturbation dataset.
 
-    The following are the [Gene Expression Omnibus](https://www.ncbi.nlm.nih.gov/geo/)
-    accession numbers used:
-    - Dixit et al., 2016: [GSE90063](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE90063)
-    - Adamson et al., 2016: [GSE90546](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE90546)
-    - Norman et al., 2019: [GSE133344](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE133344)
-
     The following are the DOIs of the corresponding publications:
     - Dixit et al., 2016: https://doi.org/10.1016/j.cell.2016.11.038
     - Adamson et al., 2016: https://doi.org/10.1016/j.cell.2016.11.048
     - Norman et al., 2019: https://doi.org/10.1126/science.aax4438
-
-    The following URLs are from the
-    [GEARS code](https://github.com/snap-stanford/GEARS/blob/master/gears/pertdata.py):
-    - Dixit et al., 2016: https://dataverse.harvard.edu/api/access/datafile/6154416
-    - Adamson et al., 2016: https://dataverse.harvard.edu/api/access/datafile/6154417
-    - Norman et al., 2019: https://dataverse.harvard.edu/api/access/datafile/6154020
+    - Replogle et al., 2022: https://doi.org/10.1016/j.cell.2022.05.013
 
     Args:
         dataset_name: The name of the dataset to load (supported: "dixit", "adamson",
-            "norman").
+            "norman", "replogle_k562_essential", "replogle_rpe1_essential").
         dataset_dir: The directory to save the dataset.
 
     Returns:
@@ -99,11 +89,30 @@ def _load(dataset_name: str, dataset_dir: str) -> AnnData:
         ValueError: If the dataset name is unknown.
     """
     if dataset_name == "dixit":
-        url = "https://dataverse.harvard.edu/api/access/datafile/6154416"
+        # Copy on Harvard Dataverse (used in the GEARS code)
+        # url = "https://dataverse.harvard.edu/api/access/datafile/6154416"
+        # Copy on Jan's UNAV Google Drive
+        url = "https://drive.google.com/uc?id=1rFgFvEfYeTajMgAB4kHYcU0pI1tQeCSj"
     elif dataset_name == "adamson":
-        url = "https://dataverse.harvard.edu/api/access/datafile/6154417"
+        # Copy on Harvard Dataverse (used in the GEARS code)
+        # url = "https://dataverse.harvard.edu/api/access/datafile/6154417"
+        # Copy on Jan's UNAV Google Drive
+        url = "https://drive.google.com/uc?id=1Tnb83H0JAlNAwdsZG40QXIbZjTtCjNT3"
     elif dataset_name == "norman":
-        url = "https://dataverse.harvard.edu/api/access/datafile/6154020"
+        # Copy on Harvard Dataverse (used in the GEARS code)
+        # url = "https://dataverse.harvard.edu/api/access/datafile/6154020"
+        # Copy on Jan's UNAV Google Drive
+        url = "https://drive.google.com/uc?id=1cf-esU4ZP5NDbzts1FdVvU5yZeTy4Vmp"
+    elif dataset_name == "replogle_k562_essential":
+        # Copy on Harvard Dataverse (used in the GEARS code)
+        # url = "https://dataverse.harvard.edu/api/access/datafile/7458695"
+        # Copy on Jan's UNAV Google Drive
+        url = "https://drive.google.com/uc?id=1cbl24KIjURm0v7qpQhYFgDf5gXFHSKO5"
+    elif dataset_name == "replogle_rpe1_essential":
+        # Copy on Harvard Dataverse (used in the GEARS code)
+        # url = "https://dataverse.harvard.edu/api/access/datafile/7458694"
+        # Copy on Jan's UNAV Google Drive
+        url = "https://drive.google.com/uc?id=1bNIKNL-a-B6Hj7lcf06GJjPAjNc1WD9a"
     else:
         raise ValueError(f"Unknown dataset: {dataset_name}")
 
@@ -119,7 +128,12 @@ def _load(dataset_name: str, dataset_dir: str) -> AnnData:
 
         # Download the dataset
         print(f"Downloading dataset: {dataset_name}")
-        download_file(url=url, save_filename=zip_filename)
+        if url.startswith("https://drive.google.com/"):
+            print("Downloading from Jan's UNAV Google Drive")
+            gdown.download(url=url, output=zip_filename, quiet=False)
+        else:
+            print("Downloading from Havard Dataverse")
+            download_file(url=url, save_filename=zip_filename)
 
         # Extract the dataset
         print(f"Extracting dataset: {dataset_name}")
