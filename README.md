@@ -63,7 +63,7 @@ We use [pre-commit](https://pre-commit.com) to automatically run checks on every
     ```
 3. Run against all files (optional):
     ```sh
-    pre-commit run --all files
+    pre-commit run --all-files
     ```
 
 ### Code Linting
