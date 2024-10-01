@@ -7,7 +7,5 @@ __pycache__/
 # Virtual environment directory
 /.venv/
 
-# Data directory
-/data/raw
-/data/processed
-
+# Datasets directory
+/datasets/

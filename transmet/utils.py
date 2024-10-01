@@ -81,11 +81,17 @@ def extract_zip(zip_path: str, extract_dir: str) -> None:
     Args:
         zip_path: The path to the ZIP file.
         extract_dir: The directory to extract the ZIP file into.
+
+    Raises:
+        ValueError: If there is an issue extracting the ZIP file.
     """
     print(f"Extracting ZIP file: {zip_path} -> {extract_dir}")
-    with ZipFile(file=zip_path) as zipfile:
-        zipfile.extractall(path=extract_dir)
-    print(f"Extraction completed: {extract_dir}")
+    try:
+        with ZipFile(file=zip_path) as f:
+            f.extractall(path=extract_dir)
+        print(f"Extraction completed: {extract_dir}")
+    except f.BadZipFile as e:
+        raise ValueError(f"Error extracting ZIP file: {e}")
 
 
 def extract_tar(tar_path: str, extract_dir: str) -> None:
@@ -95,11 +101,14 @@ def extract_tar(tar_path: str, extract_dir: str) -> None:
     Args:
         tar_path: The path to the TAR file.
         extract_dir: The directory to extract the TAR file into.
+
+    Raises:
+        ValueError: If there is an issue extracting the TAR file.
     """
     print(f"Extracting TAR file: {tar_path} -> {extract_dir}")
     try:
-        with tarfile.open(name=tar_path) as tar:
-            tar.extractall(path=extract_dir)
+        with tarfile.open(name=tar_path) as f:
+            f.extractall(path=extract_dir)
         print(f"Extraction completed: {extract_dir}")
-    except tarfile.TarError as e:
-        print(f"Error extracting TAR file: {e}")
+    except f.TarError as e:
+        raise ValueError(f"Error extracting TAR file: {e}")
