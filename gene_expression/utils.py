@@ -6,6 +6,7 @@ import subprocess
 from tqdm import tqdm
 from typing import Optional
 from zipfile import ZipFile
+import tarfile
 
 
 def get_git_root() -> Optional[str]:
@@ -85,3 +86,20 @@ def extract_zip(zip_path: str, extract_dir: str) -> None:
     with ZipFile(file=zip_path) as zipfile:
         zipfile.extractall(path=extract_dir)
     print(f"Extraction completed: {extract_dir}")
+
+
+def extract_tar(tar_path: str, extract_dir: str) -> None:
+    """
+    Extract a TAR file.
+
+    Args:
+        tar_path: The path to the TAR file.
+        extract_dir: The directory to extract the TAR file into.
+    """
+    print(f"Extracting TAR file: {tar_path} -> {extract_dir}")
+    try:
+        with tarfile.open(name=tar_path) as tar:
+            tar.extractall(path=extract_dir)
+        print(f"Extraction completed: {extract_dir}")
+    except tarfile.TarError as e:
+        print(f"Error extracting TAR file: {e}")
