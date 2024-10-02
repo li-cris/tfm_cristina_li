@@ -146,3 +146,37 @@ def ensembl_id_to_gene_name(ensembl_id: str) -> str:
         return data.get("display_name", "No gene name found")
     except requests.exceptions.RequestException as e:
         raise ValueError(f"Failed to get gene name from Ensembl REST API: {e}")
+
+
+def export_barcodes_and_conditions_to_csv(
+    adata, output_filename: str
+) -> Optional[bool]:
+    """
+    Export the 'cell_barcode', 'condition', and 'cell_type' columns from the .obs attribute
+    of the AnnData object to a CSV file, with columns in the correct order.
+
+    Args:
+        adata: The AnnData object containing the gene expression data.
+        output_filename: The path and name of the output CSV file.
+
+    Returns:
+        True if the export was successful, or None if an error occurs.
+    """
+    try:
+        # Include the cell_barcode (index) as a separate column
+        obs_selected = adata.obs[["condition", "cell_type"]].copy()
+        obs_selected["cell_barcode"] = adata.obs.index
+
+        # Reorder the columns to have 'cell_barcode' first
+        obs_selected = obs_selected[["cell_barcode", "condition", "cell_type"]]
+
+        # Export to CSV file
+        obs_selected.to_csv(output_filename, index=False)
+        print(f"Data successfully exported to {output_filename}")
+
+        return True
+    except KeyError as e:
+        print(f"Failed to export data: Column not found - {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+    return None
