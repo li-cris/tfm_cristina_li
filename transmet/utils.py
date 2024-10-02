@@ -148,6 +148,7 @@ def ensembl_id_to_gene_name(ensembl_id: str) -> str:
         raise ValueError(f"Failed to get gene name from Ensembl REST API: {e}")
 
 
+# TODO: Make script to convert GEARS data to barcodes/condition files.
 def export_barcodes_and_conditions_to_csv(
     adata, output_filename: str
 ) -> Optional[bool]:
