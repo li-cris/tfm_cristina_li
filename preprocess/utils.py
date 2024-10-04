@@ -1,33 +1,33 @@
-from anndata import AnnData
 import pandas as pd
+from anndata import AnnData
 
 
 def filter_barcodes_and_add_condition(
-    adata: AnnData, barcodes_filename: str
+    adata: AnnData, barcodes_filepath: str
 ) -> AnnData:
-    """
-    Filter the AnnData object to keep only those cells present in the barcodes file.
+    """Filter the AnnData object to keep only those cells in the the barcodes file.
 
     Filters the AnnData object to keep only cells present in the barcodes file. Also
-    adds the "condition" info for every cell.
+    adds the "condition" info for every cell from the barcodes file to the AnnData
+    object.
 
     The barcodes file should have the following format:
     ```
-    cell_id,condition,cell_type
-    AAACATACACCGAT-1,CREB1+ctrl,K562
-    AAACATACAGAGAT-1,ctrl,K562
+    cell_id, condition
+    AAACATACACCGAT, CREB1
+    AAACATACAGAGAT, ctrl
     ...
     ```
 
     Args:
         adata: AnnData object containing the gene expression data.
-        barcodes_filename: Path to the barcodes file.
+        barcodes_filepath: Path to the barcodes file.
 
     Returns:
         The filtered AnnData object.
     """
     # Load the barcodes file
-    barcodes_df = pd.read_csv(filepath_or_buffer=barcodes_filename, sep=",")
+    barcodes_df = pd.read_csv(filepath_or_buffer=barcodes_filepath, sep=",")
 
     # Get the barcodes to keep
     barcodes_to_keep = barcodes_df["cell_id"].values
