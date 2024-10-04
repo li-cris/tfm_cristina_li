@@ -1,14 +1,18 @@
 """Functionality for handling perturbation data."""
 
 import os
-from typing import Optional
+import sys
+from typing import Optional, List
 
 from anndata import AnnData
 import gdown
 import pandas as pd
 import scanpy as sc
 
-from utils import download_file, extract_zip, get_git_root
+# Add the parent directory to sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from transmet.utils import download_file, extract_zip, get_git_root
 
 
 class PertData:
@@ -48,23 +52,25 @@ class PertData:
             f"    name: {self.name}\n"
             f"    variant: {self.variant}\n"
             f"    path: {self.path}\n"
-            f"    adata: AnnData object with n_obs x n_vars = {self.adata.shape[0]} x {self.adata.shape[1]}"
+            f"    adata: AnnData object with n_obs x n_vars "
+            f"= {self.adata.shape[0]} x {self.adata.shape[1]}"
         )
 
     @classmethod
-    def from_repo(
+    def from_gdrive(
         cls,
         name: str,
         variant: str,
         save_dir: str = os.path.join(f"{get_git_root()}", "datasets"),
     ) -> "PertData":
         """
-        Load perturbation dataset from an online repository.
+        Load perturbation dataset from Google Drive.
 
         Args:
             name: The name of the dataset to load (supported: "dixit", "adamson",
                 "norman", "replogle_k562_essential", "replogle_rpe1_essential").
-            variant: The variant of the dataset to load (supported: "gears").
+            variant: The variant of the dataset to load (supported: "gears",
+                "processed").
             save_dir: The directory to save the data.
 
         Returns:
@@ -82,7 +88,7 @@ class PertData:
             raise ValueError(f"Unknown dataset: {name}")
 
         # Check if the variant is supported
-        supported_variants = ["gears"]
+        supported_variants = ["gears", "processed"]
         if variant not in supported_variants:
             raise ValueError(f"Unknown variant: {variant}")
 
@@ -98,13 +104,69 @@ class PertData:
         )
 
         # Generate fixed perturbation labels
-        instance.adata.obs["condition_fixed"] = generate_fixed_perturbation_labels(
+        instance.adata.obs["condition_fixed"] = _generate_fixed_perturbation_labels(
             labels=instance.adata.obs["condition"]
         )
 
         return instance
 
-    def export_tsv(self, tsv_path: str, n_samples: int = None) -> None:
+    def normalize_(self, type: str = "CPM") -> None:
+        """
+        Normalize the perturbation data.
+
+        Args:
+            type: The type of normalization to apply (supported: "CPM").
+        """
+        # Check if the normalization type is supported
+        supported_types = ["CPM"]
+        if type not in supported_types:
+            raise ValueError(f"Unknown normalization type: {type}")
+
+        # Normalize the data
+        if type == "CPM":
+            _normalize_cpm_(adata=self.adata)
+        else:
+            raise ValueError(f"Unknown normalization type: {type}")
+
+    def apply_gears_normalization_and_filtering_(self) -> None:
+        """Normalize the perturbation data as in GEARS."""
+        sc.pp.normalize_total(adata=self.adata, inplace=True)
+        sc.pp.log1p(adata=self.adata, inplace=True)
+        sc.pp.highly_variable_genes(
+            adata=self.adata, n_top_genes=5000, subset=True, inplace=True
+        )
+
+    def export_obs_to_csv(self, path: str, obs: List[str]) -> None:
+        """
+        Export the observation data to a CSV file.
+
+        Args:
+            path: The path to save the CSV file.
+            obs: The list of observations to export.
+        """
+        # Get a copy of the observation data
+        all_obs = self.adata.obs.copy()
+
+        # Handle special case: "cell_id" is the obs index. Include it as the first
+        # column of our temporary DataFrame to be able to export it.
+        if "cell_id" in obs:
+            all_obs["cell_id"] = self.adata.obs.index
+            all_obs = all_obs[
+                ["cell_id"] + [item for item in obs if item != "cell_id"]
+            ]  # Reorder columns
+
+        # Check if the requested observations are present in the dataset
+        for o in obs:
+            if o not in all_obs.columns:
+                raise ValueError(f"Observation '{o}' not found in the dataset")
+
+        # Make a DataFrame with only the requested observations
+        requested_obs = all_obs[obs]
+
+        # Export the observation data to a CSV file
+        requested_obs[obs].to_csv(path_or_buf=path, index=False)
+
+    def export_tsv(self, path: str, n_samples: int = None) -> None:
         """
         Save the perturbation data to a TSV file.
 
@@ -116,19 +178,18 @@ class PertData:
         - The remaining entries are the gene expression values.
 
         Args:
-            tsv_path: The path to save the TSV file.
+            path: The path to save the TSV file.
             n_samples: The number of samples to export.
         """
         # Export all samples if n_samples is not provided
+        n_obs = self.adata.shape[0]
         if n_samples is None:
-            n_samples = self.adata.n_obs
-        elif n_samples > self.adata.n_obs:
-            raise ValueError(
-                f"n_samples exceeds available samples. Max is {self.adata.n_obs}."
-            )
-        print(
-            f"Exporting the first {n_samples}/{self.adata.n_obs} samples to: {tsv_path}"
-        )
+            n_samples = n_obs
+            print(f"Exporting all {n_obs} samples to: {path}")
+        elif n_samples > n_obs:
+            raise ValueError(f"n_samples exceeds available samples. Max is {n_obs}.")
+        else:
+            print(f"Exporting the first {n_samples}/{n_obs} samples to: {path}")
 
         # Extract cell identifiers and gene identifiers
         cell_ids = self.adata.obs_names[:n_samples].tolist()
@@ -153,9 +214,14 @@ class PertData:
         expression_df.rename(columns={"index": "Gene"}, inplace=True)
 
         # Save the DataFrame to a TSV file
-        expression_df.to_csv(path_or_buf=tsv_path, sep="\t", index=False)
+        expression_df.to_csv(path_or_buf=path, sep="\t", index=False)
 
-        print(f"First {n_samples}/{self.adata.n_obs} samples exported to: {tsv_path}")
+        print(f"{n_samples} samples exported to: {path}")
+
+
+def _normalize_cpm_(adata: AnnData) -> None:
+    """Normalize the data (target_sum=1e6 is CPM normalization)."""
+    sc.pp.normalize_total(adata=adata, target_sum=1e6, inplace=True)
 
 
 def _load(dataset_name: str, dataset_variant: str, dataset_dir: str) -> AnnData:
@@ -165,7 +231,8 @@ def _load(dataset_name: str, dataset_variant: str, dataset_dir: str) -> AnnData:
     Args:
         dataset_name: The name of the dataset to load (supported: "dixit", "adamson",
             "norman", "replogle_k562_essential", "replogle_rpe1_essential").
-        dataset_variant: The variant of the dataset to load (supported: "gears").
+        dataset_variant: The variant of the dataset to load (supported: "gears",
+            "processed").
         dataset_dir: The directory to save the dataset.
 
     Returns:
@@ -176,27 +243,42 @@ def _load(dataset_name: str, dataset_variant: str, dataset_dir: str) -> AnnData:
     """
     if dataset_name == "dixit":
         if dataset_variant == "gears":
+            # url = "https://dataverse.harvard.edu/api/access/datafile/6154416"  # GEARS
             url = "https://drive.google.com/uc?id=1rFgFvEfYeTajMgAB4kHYcU0pI1tQeCSj"
+        elif dataset_variant == "processed":
+            url = "TBD"
         else:
             raise ValueError(f"Unknown variant: {dataset_variant}")
     elif dataset_name == "adamson":
         if dataset_variant == "gears":
+            # url = "https://dataverse.harvard.edu/api/access/datafile/6154417"  # GEARS
             url = "https://drive.google.com/uc?id=1Tnb83H0JAlNAwdsZG40QXIbZjTtCjNT3"
+        elif dataset_variant == "processed":
+            url = "TBD"
         else:
             raise ValueError(f"Unknown variant: {dataset_variant}")
     elif dataset_name == "norman":
         if dataset_variant == "gears":
+            # url = "https://dataverse.harvard.edu/api/access/datafile/6154020"  # GEARS
             url = "https://drive.google.com/uc?id=1cf-esU4ZP5NDbzts1FdVvU5yZeTy4Vmp"
+        elif dataset_variant == "processed":
+            url = "TBD"
         else:
             raise ValueError(f"Unknown variant: {dataset_variant}")
     elif dataset_name == "replogle_k562_essential":
         if dataset_variant == "gears":
+            # url = "https://dataverse.harvard.edu/api/access/datafile/7458695"  # GEARS
             url = "https://drive.google.com/uc?id=1cbl24KIjURm0v7qpQhYFgDf5gXFHSKO5"
+        elif dataset_variant == "processed":
+            url = "TBD"
         else:
             raise ValueError(f"Unknown variant: {dataset_variant}")
     elif dataset_name == "replogle_rpe1_essential":
         if dataset_variant == "gears":
+            # url = "https://dataverse.harvard.edu/api/access/datafile/7458694"  # GEARS
             url = "https://drive.google.com/uc?id=1bNIKNL-a-B6Hj7lcf06GJjPAjNc1WD9a"
+        elif dataset_variant == "processed":
+            url = "TBD"
         else:
             raise ValueError(f"Unknown variant: {dataset_variant}")
     else:
@@ -219,22 +301,23 @@ def _load(dataset_name: str, dataset_variant: str, dataset_dir: str) -> AnnData:
             gdown.download(url=url, output=zip_filename, quiet=False)
         else:
             print("Downloading from URL")
-            download_file(url=url, save_filename=zip_filename)
+            download_file(url=url, path=zip_filename)
 
         # Extract the dataset
         print(f"Extracting dataset: {dataset_name}")
         extract_zip(zip_path=zip_filename, extract_dir=dataset_dir)
     else:
-        print(f"Dataset directory already exists: {dataset_dir}")
+        # print(f"Dataset directory already exists: {dataset_dir}")
+        pass
 
     # Load the dataset
-    print(f"Loading dataset: {dataset_name}")
+    print(f"Loading dataset: {dataset_name}::{dataset_variant}")
     adata = sc.read_h5ad(filename=h5ad_filename)
 
     return adata
 
 
-def generate_fixed_perturbation_labels(labels: pd.Series) -> pd.Series:
+def _generate_fixed_perturbation_labels(labels: pd.Series) -> pd.Series:
     """
     Generate fixed perturbation labels.
 

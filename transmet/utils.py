@@ -1,12 +1,13 @@
 """Utility functions."""
 
 import os
-import requests
 import subprocess
-from tqdm import tqdm
+import tarfile
 from typing import Optional
 from zipfile import ZipFile
-import tarfile
+
+import requests
+from tqdm import tqdm
 
 
 def get_git_root() -> Optional[str]:
@@ -29,7 +30,7 @@ def get_git_root() -> Optional[str]:
     return None
 
 
-def download_file(url: str, save_filename: str) -> None:
+def download_file(url: str, path: str) -> None:
     """
     Download a file with a progress bar.
 
@@ -38,14 +39,15 @@ def download_file(url: str, save_filename: str) -> None:
 
     Args:
         url: The URL of the data.
-        save_filename: The path to save the data.
+        path: The path to save the data.
 
     Raises:
-        requests.exceptions.RequestException: If there is an issue with the HTTP request.
+        requests.exceptions.RequestException: If there is an issue with the HTTP
+            request.
         OSError: If there is an issue with writing the file.
     """
-    if not os.path.exists(path=save_filename):
-        print(f"Downloading: {url} -> {save_filename}")
+    if not os.path.exists(path=path):
+        print(f"Downloading: {url} -> {path}")
         try:
             with requests.get(url=url, stream=True) as response:
                 response.raise_for_status()
@@ -57,12 +59,12 @@ def download_file(url: str, save_filename: str) -> None:
                 progress_bar = tqdm(
                     total=total_size_in_bytes, unit="iB", unit_scale=True
                 )
-                with open(file=save_filename, mode="wb") as file:
+                with open(file=path, mode="wb") as file:
                     for data in response.iter_content(chunk_size=block_size):
                         progress_bar.update(n=len(data))
                         file.write(data)
                 progress_bar.close()
-            print(f"Download completed: {save_filename}")
+            print(f"Download completed: {path}")
         except requests.exceptions.RequestException as e:
             print(f"Error downloading file: {e}")
         except OSError as e:
@@ -71,7 +73,7 @@ def download_file(url: str, save_filename: str) -> None:
             if "progress_bar" in locals():
                 progress_bar.close()
     else:
-        print(f"File already exists: {save_filename}")
+        print(f"File already exists: {path}")
 
 
 def extract_zip(zip_path: str, extract_dir: str) -> None:
