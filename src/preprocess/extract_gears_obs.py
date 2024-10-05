@@ -1,4 +1,4 @@
-"""Utility to extract ['cell_id', 'condition_fixed'] from the GEARS datasets."""
+"""Utility to extract ['cell_id', 'condition'] from the GEARS datasets."""
 
 import os
 import sys
@@ -28,7 +28,7 @@ def _fix_adamson(csv_file_path: str) -> None:
 
 
 def extract_gears_obs(dataset_name: str, datasets_dir_path: str) -> str:
-    """Extract ['cell_id', 'condition_fixed'] from the GEARS datasets.
+    """Extract ['cell_id', 'condition'] from the GEARS datasets.
 
     Args:
         dataset_name: The name of the dataset.
@@ -37,25 +37,23 @@ def extract_gears_obs(dataset_name: str, datasets_dir_path: str) -> str:
     Returns:
         The path to the CSV file containing the observations.
     """
-    # Load the dataset.
-    pert_dataset = pt.PertDataset(
-        name=dataset_name, variant="gears", dir_path=datasets_dir_path
-    )
-
     # Make the output file path.
-    output_file_path = os.path.join(pert_dataset.path, "obs.csv")
+    output_file_path = os.path.join(datasets_dir_path, dataset_name, "gears", "obs.csv")
 
     if not os.path.exists(output_file_path):
+        # Load the dataset.
+        pert_dataset = pt.PertDataset(
+            name=dataset_name, variant="gears", dir_path=datasets_dir_path
+        )
+
         # Export the observations.
         print(f"Exporting observations to: {output_file_path}")
         pert_dataset.export_obs_to_csv(
-            file_path=output_file_path, obs=["cell_id", "condition_fixed"]
+            file_path=output_file_path, obs=["cell_id", "condition"]
         )
 
         # Apply fixes.
         if dataset_name == "adamson":
             _fix_adamson(csv_file_path=output_file_path)
-    else:
-        print(f"Observations already exported to: {output_file_path}")
 
     return output_file_path

@@ -1,40 +1,18 @@
-"""Preprocess the Norman dataset."""
+"""Preprocessing for the Norman dataset."""
 
-import gzip
 import os
 import shutil
 import sys
-import tempfile
 
 import scanpy as sc
 
 # Add the root of the project to sys.path.
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from preprocess.extract_gears_obs import extract_gears_obs
-from preprocess.utils import filter_barcodes_and_add_condition
-from transmet.utils import download_file
+from preprocess.shared import download_file, modify_features_file
 
 
-def _modify_features_file(path: str) -> None:
-    """Modify the `<prefix>_features.tsv.gz` file in-place to append "Gene Expression".
-
-    Args:
-        path: The path to the `<prefix>_features.tsv.gz` file.
-    """
-    with gzip.open(filename=path, mode="rt") as input_file:
-        lines = input_file.readlines()
-        if not lines[0].strip().endswith("Gene Expression"):
-            with tempfile.NamedTemporaryFile() as temp_file:
-                temp_file_path = temp_file.name
-                with gzip.open(filename=temp_file_path, mode="wt") as output_file:
-                    for line in lines:
-                        line = line.strip() + "\tGene Expression\n"
-                        output_file.write(line)
-                shutil.copy2(src=temp_file_path, dst=path)
-
-
-def _download_raw_data(dir_path: str) -> None:
+def download_raw_data(dir_path: str) -> None:
     """Download the raw data.
 
     Args:
@@ -67,48 +45,20 @@ def _download_raw_data(dir_path: str) -> None:
 
     # Also, the "raw_features.tsv.gz" file needs to have a third column with the value
     # "Gene Expression".
-    _modify_features_file(path=os.path.join(dir_path, "raw_features.tsv.gz"))
+    raw_features_file_path = os.path.join(dir_path, "raw_features.tsv.gz")
+    modify_features_file(file_path=raw_features_file_path)
 
 
-def preprocess(datasets_dir_path: str, apply_gears_filter: bool = False) -> None:
-    """Preprocess the Norman dataset.
+def load_raw_data(dir_path: str) -> sc.AnnData:
+    """Load the raw data.
 
     Args:
-        datasets_dir_path: The path to the datasets directory.
-        apply_gears_filter: Whether to reduce the data to the same set of cells as used
-            by GEARS.
+        dir_path: The directory path where the raw data is stored.
+
+    Returns:
+        The AnnData object.
     """
-    # Create the "raw" directory and download the raw data.
-    raw_dir_path = os.path.join(datasets_dir_path, "norman", "raw")
-    os.makedirs(name=raw_dir_path, exist_ok=True)
-    _download_raw_data(dir_path=raw_dir_path)
-
-    # Load the data into an AnnData object.
-    print(f"Loading raw data from: {raw_dir_path}")
     adata = sc.read_10x_mtx(
-        path=raw_dir_path, var_names="gene_ids", cache=False, prefix="raw_"
+        path=dir_path, var_names="gene_ids", cache=False, prefix="raw_"
     )
-    print(adata)
-
-    if apply_gears_filter:
-        # Extract the GEARS barcodes.
-        gears_barcodes_file_path = extract_gears_obs(
-            dataset_name="norman", datasets_dir_path=datasets_dir_path
-        )
-
-        # Filter the data to keep only those cells as used by GEARS.
-        print(f"Filtering the data based on: {gears_barcodes_file_path}")
-        adata = filter_barcodes_and_add_condition(
-            adata=adata, barcodes_file_path=gears_barcodes_file_path
-        )
-        print(f"Remaining cells: {adata.shape[0]}")
-        print(adata)
-
-    # Create the "preprocessed" directory.
-    preprocessed_dir_path = os.path.join(datasets_dir_path, "norman", "preprocessed")
-    os.makedirs(name=preprocessed_dir_path, exist_ok=True)
-
-    # Save the data to an H5AD file.
-    h5ad_file_path = os.path.join(preprocessed_dir_path, "adata.h5ad")
-    print(f"Saving the processed data to: {h5ad_file_path}")
-    adata.write(filename=h5ad_file_path)
+    return adata

@@ -60,11 +60,6 @@ class PertDataset:
             dataset_dir_path=self.path,
         )
 
-        # Generate fixed perturbation labels.
-        self.adata.obs["condition_fixed"] = _generate_condition_fixed(
-            labels=self.adata.obs["condition"]
-        )
-
     def __str__(self) -> str:
         """Return a string representation of the PertDataset object."""
         return (
@@ -72,8 +67,8 @@ class PertDataset:
             f"    name: {self.name}\n"
             f"    variant: {self.variant}\n"
             f"    path: {self.path}\n"
-            f"    adata: AnnData object with n_obs x n_vars "
-            f"= {self.adata.shape[0]} x {self.adata.shape[1]}"
+            f"    adata: AnnData object with n_obs ✕ n_vars "
+            f"= {self.adata.shape[0]} ✕ {self.adata.shape[1]}"
         )
 
     def normalize_(self, type: str = "CPM") -> None:
@@ -115,6 +110,55 @@ class PertDataset:
 
         # Export the observation data to a CSV file.
         requested_obs[obs].to_csv(path_or_buf=file_path, index=False)
+
+    def export_tsv(self, file_path: str, n_samples: int = None) -> None:
+        """Save the perturbation data to a TSV file.
+
+        If n_samples is provided, only the first n_samples samples are exported.
+
+        The TSV file has the following format:
+        - The first row contains the cell identifiers.
+        - The first column contains the gene identifiers.
+        - The remaining entries are the gene expression values.
+
+        Args:
+            file_path: The path to save the TSV file.
+            n_samples: The number of samples to export.
+        """
+        # Export all samples if n_samples is not provided.
+        n_obs = self.adata.shape[0]
+        if n_samples is None:
+            n_samples = n_obs
+            print(f"Exporting all {n_obs} samples to: {file_path}")
+        elif n_samples > n_obs:
+            raise ValueError(f"n_samples exceeds available samples. Max is {n_obs}.")
+        else:
+            print(f"Exporting the first {n_samples}/{n_obs} samples to: {file_path}")
+
+        # Extract cell identifiers and gene identifiers.
+        cell_ids = self.adata.obs_names[:n_samples].tolist()
+        gene_ids = self.adata.var_names.tolist()
+
+        # Get the first n_samples from the expression matrix.
+        expression_matrix = self.adata.X[:n_samples, :].todense()
+
+        # Transpose expression matrix to match the desired output (genes as rows,
+        # cells as columns).
+        expression_matrix = expression_matrix.T
+
+        # Create a DataFrame for export.
+        expression_df = pd.DataFrame(
+            data=expression_matrix, index=gene_ids, columns=cell_ids
+        )
+
+        # Reset index to move the gene identifiers (row index) to a column.
+        expression_df.reset_index(inplace=True)
+
+        # Rename the index column to "Gene" for clarity.
+        expression_df.rename(columns={"index": "Gene"}, inplace=True)
+
+        # Save the DataFrame to a TSV file.
+        expression_df.to_csv(path_or_buf=file_path, sep="\t", index=False)
 
 
 def _load(dataset_name: str, dataset_variant: str, dataset_dir_path: str) -> AnnData:
@@ -199,42 +243,6 @@ def _load(dataset_name: str, dataset_variant: str, dataset_dir_path: str) -> Ann
     adata = sc.read_h5ad(filename=h5ad_file_path)
 
     return adata
-
-
-def _generate_condition_fixed(labels: pd.Series) -> pd.Series:
-    """Generate fixed perturbation labels.
-
-    In the perturbation datasets, single-gene perturbations are expressed as:
-    - ctrl+<gene1>
-    - <gene1>+ctrl
-
-    Double-gene perturbations are expressed as:
-    - <gene1>+<gene2>
-
-    However, in general, there could also be multi-gene perturbations, and they might be
-    expressed as a string with additional superfluous "ctrl+" in the middle:
-    - ctrl+<gene1>+ctrl+<gene2>+ctrl+<gene3>+ctrl
-
-    Hence, we need to remove superfluous "ctrl+" and "+ctrl" matches, such that
-    perturbations are expressed as:
-    - <gene1> (single-gene perturbation)
-    - <gene1>+<gene2> (double-gene perturbation)
-    - <gene1>+<gene2>+...+<geneN> (multi-gene perturbation)
-
-    Note: Control cells are not perturbed and are labeled as "ctrl". We do not modify
-    these labels.
-
-    Args:
-        labels: The perturbation labels.
-
-    Returns:
-        The fixed perturbation labels.
-    """
-    # Remove "ctrl+" and "+ctrl" matches.
-    labels_fixed = labels.str.replace(pat="ctrl+", repl="")
-    labels_fixed = labels_fixed.str.replace(pat="+ctrl", repl="")
-
-    return labels_fixed
 
 
 def _normalize_cpm_(adata: AnnData) -> None:
