@@ -179,35 +179,35 @@ def _load(dataset_name: str, dataset_variant: str, dataset_dir_path: str) -> Ann
         if dataset_variant == "gears":
             url = "https://drive.google.com/uc?id=1W1phErDoQ9U5iJZSEuyEZM4dF8U8ZWqf"
         elif dataset_variant == "preprocessed":
-            url = "TBD"
+            url = "https://drive.google.com/uc?id=150AH0uEJYDERCHnnM2P9knZpmY4tOGNZ"
         else:
             raise ValueError(f"Unsupported dataset variant: {dataset_variant}")
     elif dataset_name == "dixit":
         if dataset_variant == "gears":
             url = "https://drive.google.com/uc?id=1BN6gwKFgJIpR9fXfdQ9QeHm8mAzvmhKQ"
         elif dataset_variant == "preprocessed":
-            url = "TBD"
+            url = "https://drive.google.com/uc?id=1qVQD9zU_Dpj5AUJaD3tM8BpfTkKqgvog"
         else:
             raise ValueError(f"Unsupported dataset variant: {dataset_variant}")
     elif dataset_name == "norman":
         if dataset_variant == "gears":
             url = "https://drive.google.com/uc?id=1T5_varFOGWUtSig4RQRCSsfPxivUwd9j"
         elif dataset_variant == "preprocessed":
-            url = "TBD"
+            url = "https://drive.google.com/uc?id=1KgatnkMHy-3uh5tNkAFrsmGrivDOUjpx"
         else:
             raise ValueError(f"Unsupported dataset variant: {dataset_variant}")
     elif dataset_name == "replogle_k562_essential":
         if dataset_variant == "gears":
             url = "https://drive.google.com/uc?id=12flxmpj-XnJ8BZKtf-sgBhdUN2X4v7CD"
         elif dataset_variant == "preprocessed":
-            url = "TBD"
+            url = "https://drive.google.com/uc?id=1zdznT5x92pd8-o9HOtudKkwvj4CgqnNO"
         else:
             raise ValueError(f"Unsupported dataset variant: {dataset_variant}")
     elif dataset_name == "replogle_rpe1_essential":
         if dataset_variant == "gears":
             url = "https://drive.google.com/uc?id=1b-ZwE_Y6dNKqb4KQgUgFKfl6OGC8lmYE"
         elif dataset_variant == "preprocessed":
-            url = "TBD"
+            url = "https://drive.google.com/uc?id=1KhmS61iYwE0ineaiQyqX3chjJmCfmtFE"
         else:
             raise ValueError(f"Unsupported dataset variant: {dataset_variant}")
     else:
