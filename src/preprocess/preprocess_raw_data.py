@@ -13,7 +13,7 @@ import preprocess.replogle_k562_essential as replogle_k562_essential
 import preprocess.replogle_rpe1_essential as replogle_rpe1_essential
 from preprocess.extract_gears_obs import extract_gears_obs
 from preprocess.shared import filter_barcodes_and_add_condition
-from transmet.utils import get_git_root
+from utils.filesystem import get_git_root
 
 
 def preprocess(

@@ -3,7 +3,7 @@
 import gzip
 import os
 import shutil
-from typing import List, Optional
+from typing import Optional
 
 import gdown
 import pandas as pd
@@ -81,35 +81,6 @@ class PertDataset:
             _normalize_cpm_(adata=self.adata)
         else:
             raise ValueError(f"Unsupported normalization type: {type}")
-
-    def export_obs_to_csv(self, file_path: str, obs: List[str]) -> None:
-        """Export the observation data to a CSV file.
-
-        Args:
-            file_path: The path to save the CSV file.
-            obs: The list of observations to export.
-        """
-        # Get a copy of the observation data.
-        all_obs = self.adata.obs.copy()
-
-        # Handle special case: "cell_id" is the obs index. Include it as the first
-        # column of our temporary DataFrame to be able to export it.
-        if "cell_id" in obs:
-            all_obs["cell_id"] = self.adata.obs.index
-            all_obs = all_obs[
-                ["cell_id"] + [item for item in obs if item != "cell_id"]
-            ]  # Reorder columns.
-
-        # Check if the requested observations are present in the dataset.
-        for o in obs:
-            if o not in all_obs.columns:
-                raise ValueError(f"Observation '{o}' not found in the dataset.")
-
-        # Make a DataFrame with only the requested observations.
-        requested_obs = all_obs[obs]
-
-        # Export the observation data to a CSV file.
-        requested_obs[obs].to_csv(path_or_buf=file_path, index=False)
 
     def export_tsv(self, file_path: str, n_samples: int = None) -> None:
         """Save the perturbation data to a TSV file.
