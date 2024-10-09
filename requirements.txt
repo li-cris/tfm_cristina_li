@@ -1,0 +1,18 @@
+#? Basics
+autopep8
+pylint
+pylance
+
+#? Utils
+tqdm
+gdown
+loguru
+gitpython
+
+#? Scientific Computing
+numpy
+pandas
+scipy
+
+#? IDK
+scanpy

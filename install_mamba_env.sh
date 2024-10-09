@@ -62,3 +62,5 @@ if ! pip install git+${COMPASS_GIT_URL}; then
   echo "Failed to install COMPASS"
   exit 1
 fi
+
+pip install -r requirements.txt
