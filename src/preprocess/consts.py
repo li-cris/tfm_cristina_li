@@ -24,5 +24,6 @@ GEARS_OBS_FNAME = "obs.csv"
 
 GZ_FNAME = "adata.h5ad.gz"
 H5AD_FNAME = "adata.h5ad"
+GENE_EXP_FNAME = "expression.tsv"
 
 CELL_ID_COLNAME = "cell_id"

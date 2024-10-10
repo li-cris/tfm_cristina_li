@@ -184,7 +184,11 @@ def prepare_raw_data(
         #? move cell_id from index to a column
         obs_cols = [consts.CELL_ID_COLNAME, "condition"]
         if consts.CELL_ID_COLNAME in obs_cols:
-            all_obs_df.insert(0, "cell_id", gears_adata.obs.index)
+            all_obs_df.insert(
+                0, 
+                consts.CELL_ID_COLNAME, 
+                gears_adata.obs.index
+            )
 
         #? Check if the requested observations are present in the dataset.
         for o in obs_cols:
@@ -207,5 +211,3 @@ def prepare_raw_data(
 
     out_fpath = join(out_dpath, consts.H5AD_FNAME)
     adata.write(out_fpath)
-
-    return adata
