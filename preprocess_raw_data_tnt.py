@@ -1,7 +1,6 @@
 """Preprocess the datasets."""
 
 import os
-import sys
 import argparse
 from loguru import logger
 
@@ -14,12 +13,27 @@ def run(args):
     out_dpath = args.out_dpath
     
     if dataset_name == 'norman':
-        norman_tnt.prepare_raw_data(geo_dpath, out_dpath)
+        norman_tnt.prepare_raw_data(
+            geo_dpath, 
+            out_dpath,
+            copy=args.copy,
+            filter_by_gears=args.filter_by_gears
+        )
     else:
         raise ValueError(f"Invalid datasets: {dataset_name}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Preprocess raw data")
+    parser.add_argument(
+        "--copy",
+        action="store_true",
+        help="Copy the raw data instead of creating symbolic link",
+    )
+    parser.add_argument(
+        "--filter-by-gears",
+        action="store_true",
+        help="Filter the data based on GEARS dataset",
+    )
     parser.add_argument(
         "dataset_name",
         type=str,

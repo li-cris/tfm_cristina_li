@@ -1,15 +1,18 @@
 """Preprocessing for the Norman dataset."""
 
 import os
-import sys
 from os.path import join, exists
-from loguru import logger
 import gzip
-
+import shutil
+import tempfile as tmp
+from loguru import logger
 import pandas as pd
 import scanpy as sc
+import gdown
+from . import consts
 
-GEO_ID = "GSE133344"
+DATASET_NAME = "norman"
+GEO_ID = consts.DATASET_TO_GEOID[DATASET_NAME]
 REL_DNAME = "suppl"
 FNAMES = [
     "raw_barcodes.tsv.gz",
@@ -25,23 +28,29 @@ FEATS_FNAMES = {
 def prepare_raw_data(
     geo_dpath: str,
     out_dpath: str,
+    copy: bool = False,
+    filter_by_gears: bool = False,
 ) -> None:
     """
-    Prepares the raw data for processing by creating the necessary directory structure and symbolic links.
+    Prepares raw data for further processing by creating output directories,
+    processing feature files, and creating symbolic links to input files.
 
     Notes
     -----
-    This function assumes that the input directory structure is as follows:
-    - `geo_dpath` contains a subdirectory named `GEO_ID`
-    - `GEO_ID` contains a subdirectory named `REL_DNAME`
-    - `REL_DNAME` contains files with names matching the patterns in `FNAMES`
+    This function assumes that the input directory path and output directory path
+    are valid and that the dataset directory exists.
 
     Parameters
     ----------
     geo_dpath : str
-        The path to the input directory containing the GEO data.
+        The path to the GEO dataset directory.
     out_dpath : str
-        The path to the output directory where the prepared data will be written.
+        The path to the output directory.
+    copy : bool, optional
+        Whether to copy the input files instead of creating symbolic links.
+        Defaults to False.
+    filter_by_gears : bool, optional
+        Whether to filter the data using the GEARS dataset. Defaults to False.
 
     Returns
     -------
@@ -56,7 +65,7 @@ def prepare_raw_data(
     - Llama3.1 70B - 4.0bpw
     """
 
-    #? Create the output directory path by joining the output directory path with the GEO ID
+    #? Create the output directory path
     dataset_dpath = join(
         geo_dpath,
         GEO_ID,
@@ -95,7 +104,7 @@ def prepare_raw_data(
             )
 
             #? Process the feature file
-            logger.debug(f"Processing feature file {in_fpath}")           
+            logger.debug(f"Processing feature file {in_fpath}")
             df = pd.read_csv(
                 in_fpath,
                 compression='gzip',
@@ -107,6 +116,7 @@ def prepare_raw_data(
             df.to_csv(
                 out_fpath,
                 header=False,
+                index=False,
                 compression='infer',
                 sep="\t",
             )
@@ -121,15 +131,81 @@ def prepare_raw_data(
             #? Create a symbolic link to the input file to avoid copying
             try:
                 logger.debug(f"Creating symbolic link {out_fpath}")
-                os.symlink(in_fpath, out_fpath)
+                if copy:                   
+                    try:
+                        shutil.copy2(
+                            src=in_fpath,
+                            dst=out_fpath,
+                        )
+                    except FileExistsError:
+                        os.remove(out_fpath)
+                        shutil.copy2(
+                            src=in_fpath,
+                            dst=out_fpath,
+                        )
+                else:
+                    os.symlink(
+                        in_fpath,
+                        out_fpath
+                    )
             except FileExistsError:
                 pass
-            
+
     logger.debug(f"Creating 10x-Genomic-formatted array from {out_dpath}")
     adata = sc.read_10x_mtx(
-        path=out_dpath, 
-        var_names="gene_ids", 
-        cache=False, 
+        path=out_dpath,
+        var_names="gene_ids",
+        cache=False,
         prefix="raw_"
     )
+
+    if filter_by_gears:
+        gears_ds_url = consts.DATASET_TO_GDRIVE_URL[DATASET_NAME]
+
+        logger.debug(f"Downloading gears dataset from {gears_ds_url}")
+        with tmp.TemporaryDirectory() as tmp_d:
+            gears_gz_fpath = join(tmp_d, consts.GZ_FNAME)
+            gears_h5_fpath = join(tmp_d, consts.H5AD_FNAME)
+            with open(gears_gz_fpath, 'wb') as gz_f:
+                gdown.download(
+                    url=gears_ds_url,
+                    output=gz_f
+                )
+
+            #? Extract GZIP file
+            with gzip.open(gears_gz_fpath, mode="rb") as f_in:
+                with open(gears_h5_fpath, mode="wb") as f_out:
+                    shutil.copyfileobj(fsrc=f_in, fdst=f_out)
+
+            gears_adata = sc.read_h5ad(filename=gears_h5_fpath)
+
+        all_obs_df = gears_adata.obs.copy()
+
+        #? move cell_id from index to a column
+        obs_cols = [consts.CELL_ID_COLNAME, "condition"]
+        if consts.CELL_ID_COLNAME in obs_cols:
+            all_obs_df.insert(0, "cell_id", gears_adata.obs.index)
+
+        #? Check if the requested observations are present in the dataset.
+        for o in obs_cols:
+            if o not in all_obs_df.columns:
+                raise ValueError(f"Observation '{o}' not found in the dataset.")
+
+        #? Filter columns
+        req_obs_df = all_obs_df.loc[:, obs_cols]
+
+        #? Export the observation data to a CSV file.
+        gears_obs_fpath = join(out_dpath, consts.GEARS_OBS_FNAME)
+        req_obs_df.to_csv(
+            gears_obs_fpath,
+            index=False
+        )
+
+        sel_cell_ids = req_obs_df[consts.CELL_ID_COLNAME,].values
+
+        adata = adata[adata.obs_names.isin(values=sel_cell_ids)]
+
+    out_fpath = join(out_dpath, consts.H5AD_FNAME)
+    adata.write(out_fpath)
+
     return adata
