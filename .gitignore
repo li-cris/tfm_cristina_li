@@ -9,3 +9,6 @@ __pycache__/
 
 # Datasets directory
 /datasets/
+
+# Genes cache
+/src/metabolic_model/resources/Genes/
