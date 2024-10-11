@@ -5,6 +5,7 @@ import argparse
 from loguru import logger
 
 from src.preprocess import consts
+from src.preprocess import adamson_tnt
 from src.preprocess import norman_tnt
     
 def run(args):
@@ -12,7 +13,14 @@ def run(args):
     geo_dpath = args.geo_dpath
     out_dpath = args.out_dpath
     
-    if dataset_name == 'norman':
+    if dataset_name == "adamson":
+        adamson_tnt.prepare_raw_data(
+            geo_dpath, 
+            out_dpath,
+            copy=args.copy,
+            filter_by_gears=args.filter_by_gears
+        )
+    elif dataset_name == 'norman':
         norman_tnt.prepare_raw_data(
             geo_dpath, 
             out_dpath,

@@ -27,3 +27,7 @@ H5AD_FNAME = "adata.h5ad"
 GENE_EXP_FNAME = "expression.tsv"
 
 CELL_ID_COLNAME = "cell_id"
+
+#? 10x Genomic related naming scheme
+EXP_NAME_COLNAME = 'exp_name'
+EXP_CFG_COLNAME = 'exp_config'

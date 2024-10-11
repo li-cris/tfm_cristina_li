@@ -70,6 +70,9 @@ def prepare_raw_data(
         geo_dpath,
         GEO_ID,
     )
+    
+    #? Check if the dataset directory exists
+    assert exists(dataset_dpath)
 
     out_dpath = join(
         out_dpath,
@@ -79,8 +82,6 @@ def prepare_raw_data(
     logger.debug(f"Creating directory {out_dpath}")
     os.makedirs(out_dpath, exist_ok=True)
 
-    #? Check if the dataset directory exists
-    assert exists(dataset_dpath)
 
     #? Iterate over the file names
     for in_fname in FNAMES:

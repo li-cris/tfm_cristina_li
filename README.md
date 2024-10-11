@@ -16,4 +16,4 @@ Please see our [contribution guidelines](CONTRIBUTING.md).
 
 ## Contact
 
-For support or questions, please contact [gdufortyalv@unav.es](gdufortyalv@unav.es) or [jvoges@external.unav.es](mailto:jvoges@external.unav.es).
+For support or questions, please contact [gdufortyalv@unav.es](gdufortyalv@unav.es) or [jvoges@external.unav.es](mailto:jvoges@external.unav.es) or [adhisant@tnt.uni-hannover.de](adhisant@tnt.uni-hannover.de).
