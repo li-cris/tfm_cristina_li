@@ -26,7 +26,10 @@ def save_cache(cache: Dict[str, str]) -> None:
 
 
 def batch_gene_names_to_ensembl_ids(
-    gene_names: List[str], batch_size: int = 1000, cache: Dict[str, str] = None
+    gene_names: List[str],
+    batch_size: int = 1000,
+    cache: Dict[str, str] = None,
+    verbose: bool = False,
 ) -> Dict[str, str]:
     """Get the Ensembl IDs for a list of gene names using the Ensembl REST API.
 
@@ -34,6 +37,7 @@ def batch_gene_names_to_ensembl_ids(
         gene_names: A list of gene names.
         batch_size: The maximum number of gene names to include in each request.
         cache: A dictionary containing cached gene information.
+        verbose: If True, print detailed messages.
 
     Returns:
         A dictionary mapping gene names to Ensembl IDs.
@@ -55,13 +59,15 @@ def batch_gene_names_to_ensembl_ids(
         batch_to_request = [gene.upper() for gene in batch if gene.upper() not in cache]
 
         if not batch_to_request:
-            print(f"All genes in batch {i // batch_size + 1} are found in cache.")
+            if verbose:
+                print(f"All genes in batch {i // batch_size + 1} are found in cache.")
             continue
 
         try:
-            print(
-                f"Requesting Ensembl IDs for batch {i // batch_size + 1} from the internet."
-            )
+            if verbose:
+                print(
+                    f"Requesting Ensembl IDs for batch {i // batch_size + 1} from the internet."
+                )
             # Manually construct the JSON string for the list of gene names
             data = json.dumps({"symbols": batch_to_request})
 
@@ -83,15 +89,15 @@ def batch_gene_names_to_ensembl_ids(
             missing_genes = [
                 gene for gene in batch_to_request if gene not in new_gene_info
             ]
-            if missing_genes:
+            if missing_genes and verbose:
                 print(
                     f"Warning: The following genes were not found in the response: {missing_genes}"
                 )
 
         except requests.exceptions.RequestException as e:
-            raise ValueError(
-                f"Failed to get Ensembl IDs from the Ensembl REST API: {e}"
-            )
+            if verbose:
+                print(f"Failed to get Ensembl IDs from the Ensembl REST API: {e}")
+            break  # Exit the loop and use only the cached information
 
     # Include the cached information in the result
     gene_name_to_ensembl.update(
@@ -102,13 +108,14 @@ def batch_gene_names_to_ensembl_ids(
 
 
 def get_ensembl_ids_with_cache(
-    gene_names: List[str], batch_size: int = 1000
+    gene_names: List[str], batch_size: int = 1000, verbose: bool = False
 ) -> Dict[str, str]:
     """Get the Ensembl IDs for a list of gene names, using the cache if available.
 
     Args:
         gene_names: A list of gene names.
         batch_size: The maximum number of gene names to include in each request.
+        verbose: If True, print detailed messages.
 
     Returns:
         A dictionary mapping gene names to Ensembl IDs.
@@ -120,22 +127,25 @@ def get_ensembl_ids_with_cache(
     all_in_cache = all(gene.upper() in cache for gene in gene_names)
 
     if all_in_cache:
-        print("All requested genes are found in the cache.")
+        if verbose:
+            print("All requested genes are found in the cache.")
         return {gene: cache[gene.upper()] for gene in gene_names}
 
-    print(
-        (
-            "Some genes are not found in the cache. "
-            "Requesting missing genes from the internet."
+    if verbose:
+        print(
+            (
+                "Some genes are not found in the cache. "
+                "Requesting missing genes from the internet."
+            )
         )
-    )
 
     # Print the genes that are not in the cache
     missing_genes = [gene for gene in gene_names if gene.upper() not in cache]
-    print(f"Missing genes length: {len(missing_genes)}")
+    if verbose:
+        print(f"Missing genes length: {len(missing_genes)}")
     # Get Ensembl IDs for the missing genes
     gene_name_to_ensembl = batch_gene_names_to_ensembl_ids(
-        missing_genes, batch_size, cache
+        missing_genes, batch_size, cache, verbose
     )
 
     # Save the updated cache
@@ -149,11 +159,12 @@ def get_ensembl_ids_with_cache(
     return gene_name_to_ensembl
 
 
-def convert_gene_symbols_to_ensembl_ids(model):
+def convert_gene_symbols_to_ensembl_ids(model, verbose: bool = False):
     """Convert all gene symbols or names in the model to Ensembl IDs.
 
     Args:
         model: An instance of MetabolicModelTransmet.
+        verbose: If True, print detailed messages.
     """
     # Collect all gene names in the model
     all_genes = set()
@@ -161,7 +172,7 @@ def convert_gene_symbols_to_ensembl_ids(model):
         all_genes |= set(reaction.list_genes())
 
     # Convert gene names to Ensembl IDs using the cache
-    gene_name_to_ensembl = get_ensembl_ids_with_cache(list(all_genes))
+    gene_name_to_ensembl = get_ensembl_ids_with_cache(list(all_genes), verbose=verbose)
 
     # Update the gene associations in the model
     def update_association(assoc):
@@ -181,7 +192,7 @@ def convert_gene_symbols_to_ensembl_ids(model):
     # Verify that all genes are cached
     cached_genes = load_cache()
     missing_genes = [gene for gene in all_genes if gene.upper() not in cached_genes]
-    if missing_genes:
+    if missing_genes and verbose:
         print(f"Warning: The following genes were not cached: {missing_genes}")
-    else:
+    elif verbose:
         print("All genes have been successfully cached.")

@@ -2,7 +2,15 @@
 
 from __future__ import absolute_import, division, print_function
 
+import json
+
+# Load subsystems specific to MetabolicModelTransmet
+import os
+
+from globals import MODEL_DIR
+
 from metabolic_model.models.gene_symbols_transmet import (
+    # TODO change function name
     convert_gene_symbols_to_ensembl_ids,
 )
 from metabolic_model.models.metabolic_model import MetabolicModel
@@ -15,14 +23,45 @@ from metabolic_model.models.metabolic_model import MetabolicModel
 class MetabolicModelTransmet(MetabolicModel):
     """A class representing a metabolic model."""
 
-    def __init__(self, name):
-        """Initialize a MetabolicModel instance.
+    def __init__(self, name, compass_model=None):
+        """Initialize the metabolic model.
 
         Args:
             name (str): The name of the metabolic model.
+            compass_model (object, optional): The compass model to initialize from.
         """
         super().__init__(name)
         self.subsystems = {}
+
+        if compass_model is not None:
+            self.reactions = compass_model.reactions
+            self.species = compass_model.species
+
+            top_dir = os.path.join(MODEL_DIR, self.name)
+            model_dir = os.path.join(top_dir, "model")
+
+            with open(os.path.join(model_dir, "model.subSystems.json")) as fin:
+                subsystems = json.load(fin)
+
+            groups = zip(compass_model.reactions.values(), subsystems)
+            for reaction, subsystem in groups:
+                if subsystem not in self.subsystems:
+                    self.subsystems[subsystem] = Subsystem(name=subsystem)
+                self.subsystems[subsystem].add_reaction(reaction)
+
+            print("Metabolic model initialized successfully.")
+
+            # Remove empty gene associations
+            print("Removing empty gene associations...")
+            self.remove_empty_gene_associations()
+            print("Empty gene associations removed.")
+
+            # Convert gene symbols to ensembl ids
+            print("Converting gene symbols to Ensembl IDs...")
+            self.convert_gene_symbols_to_ensembl_ids()
+            print("Gene symbols converted to Ensembl IDs.")
+
+            print("Metabolic model loading complete.")
 
     def get_genes(self):
         """Return a list of gene id's in the MetabolicModel."""
@@ -115,81 +154,3 @@ class Subsystem(object):
     def to_serializable(self):
         """Convert the Subsystem object to a serializable dictionary format."""
         return {"id": self.id, "name": self.name}
-
-
-def print_subsystems_stats(metabolic_model):
-    """Print statistics about the subsystems."""
-    # Total number of subsystems
-    total_subsystems = len(metabolic_model.subsystems)
-
-    # Number of reactions per subsystem
-    num_reactions_per_subsystem = {
-        subsystem.name: len(subsystem.get_reactions())
-        for subsystem in metabolic_model.subsystems.values()
-    }
-
-    # Number of genes per subsystem
-    num_genes_per_subsystem = {
-        subsystem.name: len(subsystem.get_associated_genes())
-        for subsystem in metabolic_model.subsystems.values()
-    }
-
-    # Calculate average number of reactions per subsystem
-    total_reactions = sum(num_reactions_per_subsystem.values())
-    avg_reactions_per_subsystem = (
-        total_reactions / total_subsystems if total_subsystems > 0 else 0
-    )
-
-    # Calculate average number of genes per subsystem
-    total_genes = sum(num_genes_per_subsystem.values())
-    avg_genes_per_subsystem = (
-        total_genes / total_subsystems if total_subsystems > 0 else 0
-    )
-
-    # Find the subsystem with the maximum number of reactions
-    max_reactions_subsystem = max(
-        num_reactions_per_subsystem, key=num_reactions_per_subsystem.get
-    )
-    max_reactions = num_reactions_per_subsystem[max_reactions_subsystem]
-
-    # Find the subsystem with the minimum number of reactions
-    min_reactions_subsystem = min(
-        num_reactions_per_subsystem, key=num_reactions_per_subsystem.get
-    )
-    min_reactions = num_reactions_per_subsystem[min_reactions_subsystem]
-
-    # Find the subsystem with the maximum number of genes
-    max_genes_subsystem = max(num_genes_per_subsystem, key=num_genes_per_subsystem.get)
-    max_genes = num_genes_per_subsystem[max_genes_subsystem]
-
-    # Find the subsystem with the minimum number of genes
-    min_genes_subsystem = min(num_genes_per_subsystem, key=num_genes_per_subsystem.get)
-    min_genes = num_genes_per_subsystem[min_genes_subsystem]
-
-    # Print the statistics as a report
-    print("Subsystems Statistics Report")
-    print("=" * 40)
-    print(f"Total number of subsystems: {total_subsystems}")
-    print("-" * 40)
-    print(
-        f"Average number of reactions per subsystem: {avg_reactions_per_subsystem:.2f}"
-    )
-    print(
-        f"Subsystem with the maximum reactions: '{max_reactions_subsystem}' "
-        f"with {max_reactions} reactions"
-    )
-    print(
-        f"Subsystem with the minimum reactions: '{min_reactions_subsystem}' "
-        f"with {min_reactions} reactions"
-    )
-    print("-" * 40)
-    print(f"Average number of genes per subsystem: {avg_genes_per_subsystem:.2f}")
-    print(
-        f"Subsystem with the maximum genes: '{max_genes_subsystem}' "
-        f"with {max_genes} genes"
-    )
-    print(
-        f"Subsystem with the minimum genes: '{min_genes_subsystem}' "
-        f"with {min_genes} genes"
-    )
-    print("=" * 40)
