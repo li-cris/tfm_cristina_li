@@ -186,8 +186,31 @@ def apply_plot_reaction_graph(g: nx.DiGraph) -> None:
             d["alpha"] = 0.1
 
 
+def normalize_scores(scores):
+    """Normalize scores to a range between 0 and 1."""
+    min_score = min(scores.values())
+    max_score = max(scores.values())
+    return {k: (v - min_score) / (max_score - min_score) for k, v in scores.items()}
+
+
+def differentiate_gene_expression_mean(
+    g: nx.DiGraph, meta_pert_data: MetaPertDataset, cmap
+) -> None:
+    """Differentiate gene expression mean in the graph."""
+    if "means" not in meta_pert_data.adata.var:
+        print("Pre-calculated means not available in adata.var.")
+        return
+
+    gene_expression_means = meta_pert_data.adata.var["means"].to_dict()
+    norm_scores = normalize_scores(gene_expression_means)
+
+    for node in g.nodes:
+        if g.nodes[node]["shape"] == GENE_SHAPE and node in norm_scores:
+            g.nodes[node]["color"] = mcolors.to_hex(cmap(norm_scores[node]))
+
+
 def differentiate_reaction_activation_mean(
-    g: nx.DiGraph, meta_pert_data: MetaPertDataset, ax
+    g: nx.DiGraph, meta_pert_data: MetaPertDataset, cmap
 ) -> None:
     """Differentiate reaction activation mean in the graph."""
     if (
@@ -198,45 +221,31 @@ def differentiate_reaction_activation_mean(
         return
 
     mean_scores = meta_pert_data.reaction_stats["mean"]
-    subsystem_mean_scores = {
-        node.upper(): mean_scores[node.upper()]
-        for node in g.nodes
-        if g.nodes[node]["shape"] == REACTION_SHAPE and node.upper() in mean_scores
-    }
+    norm_scores = normalize_scores(mean_scores)
 
-    if not subsystem_mean_scores:
-        print("No mean scores available for reactions in the subsystem.")
+    for node in g.nodes:
+        if g.nodes[node]["shape"] == REACTION_SHAPE and node.upper() in norm_scores:
+            g.nodes[node]["color"] = mcolors.to_hex(cmap(norm_scores[node.upper()]))
+
+
+def differentiate_gene_expression_variance(
+    g: nx.DiGraph, meta_pert_data: MetaPertDataset, cmap
+) -> None:
+    """Differentiate gene expression variance in the graph."""
+    if "dispersions" not in meta_pert_data.adata.var:
+        print("Pre-calculated dispersions not available in adata.var.")
         return
 
-    norm = mcolors.Normalize(
-        vmin=min(subsystem_mean_scores.values()),
-        vmax=max(subsystem_mean_scores.values()),
-    )
-    cmap = plt.cm.viridis
-    for node in g.nodes:
-        if (
-            g.nodes[node]["shape"] == REACTION_SHAPE
-            and node.upper() in subsystem_mean_scores
-        ):
-            g.nodes[node]["color"] = mcolors.to_hex(
-                cmap(norm(subsystem_mean_scores[node.upper()]))
-            )
+    gene_expression_variances = meta_pert_data.adata.var["dispersions"].to_dict()
+    norm_scores = normalize_scores(gene_expression_variances)
 
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array([])
-    plt.colorbar(
-        sm,
-        ax=ax,
-        orientation="horizontal",
-        label="Reaction Activation Mean",
-        shrink=0.2,
-        aspect=30,
-        location="top",
-    )
+    for node in g.nodes:
+        if g.nodes[node]["shape"] == GENE_SHAPE and node in norm_scores:
+            g.nodes[node]["color"] = mcolors.to_hex(cmap(norm_scores[node]))
 
 
 def differentiate_reaction_activation_variance(
-    g: nx.DiGraph, meta_pert_data: MetaPertDataset, ax
+    g: nx.DiGraph, meta_pert_data: MetaPertDataset, cmap
 ) -> None:
     """Differentiate reaction activation variance in the graph."""
     if (
@@ -247,44 +256,14 @@ def differentiate_reaction_activation_variance(
         return
 
     variance_scores = meta_pert_data.reaction_stats["variance"]
-    subsystem_variance_scores = {
-        node.upper(): variance_scores[node.upper()]
-        for node in g.nodes
-        if g.nodes[node]["shape"] == REACTION_SHAPE and node.upper() in variance_scores
-    }
+    norm_scores = normalize_scores(variance_scores)
 
-    if not subsystem_variance_scores:
-        print("No variance scores available for reactions in the subsystem.")
-        return
-
-    norm = mcolors.Normalize(
-        vmin=min(subsystem_variance_scores.values()),
-        vmax=max(subsystem_variance_scores.values()),
-    )
-    cmap = plt.cm.viridis
     for node in g.nodes:
-        if (
-            g.nodes[node]["shape"] == REACTION_SHAPE
-            and node.upper() in subsystem_variance_scores
-        ):
-            g.nodes[node]["color"] = mcolors.to_hex(
-                cmap(norm(subsystem_variance_scores[node.upper()]))
-            )
-
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array([])
-    plt.colorbar(
-        sm,
-        ax=ax,
-        # orientation="horizontal",
-        label="Reaction Activation Variance",
-        shrink=0.2,
-        aspect=30,
-        location="top",
-    )
+        if g.nodes[node]["shape"] == REACTION_SHAPE and node.upper() in norm_scores:
+            g.nodes[node]["color"] = mcolors.to_hex(cmap(norm_scores[node.upper()]))
 
 
-def draw_nodes_and_edges(g: nx.DiGraph, pos, plot_reaction_graph_flag: bool) -> None:
+def draw_nodes_and_edges(g: nx.DiGraph, pos) -> None:
     """Draw nodes and edges of the graph."""
     node_shapes = {METABOLITE_SHAPE: "o", GENE_SHAPE: "s", REACTION_SHAPE: "d"}
     for shape in node_shapes:
@@ -305,8 +284,6 @@ def draw_nodes_and_edges(g: nx.DiGraph, pos, plot_reaction_graph_flag: bool) -> 
                 for n in g.nodes
                 if g.nodes[n]["shape"] == shape
             ],
-            # edgecolors="gray",  # Add gray edge color to each node
-            # linewidths=0.5,
         )
 
     edges = g.edges(data=True)
@@ -341,6 +318,65 @@ def draw_nodes_and_edges(g: nx.DiGraph, pos, plot_reaction_graph_flag: bool) -> 
         )
 
 
+def plot_single_subgraph(
+    subgraph: nx.DiGraph,
+    pos,
+    meta_pert_data: MetaPertDataset,
+    subsystem_name: str,
+    base_figsize: tuple,
+    cmap,
+    differentiate_reaction_activation_mean_flag: bool,
+    differentiate_reaction_activation_variance_flag: bool,
+    differentiate_gene_expression_mean_flag: bool,
+    differentiate_gene_expression_variance_flag: bool,
+    component: str = "",
+):
+    """Plot a single subgraph."""
+    num_nodes = len(subgraph.nodes)
+    figsize = (
+        base_figsize[0] + num_nodes * 0.3,
+        base_figsize[1] + num_nodes * 0.3,
+    )
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    if (
+        differentiate_reaction_activation_mean_flag
+        or differentiate_reaction_activation_variance_flag
+        or differentiate_gene_expression_mean_flag
+        or differentiate_gene_expression_variance_flag
+    ):
+        # Add a single colorbar for the entire plot
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=mcolors.Normalize(vmin=0, vmax=1))
+        sm.set_array([])
+        plt.colorbar(
+            sm,
+            ax=ax,
+            orientation="horizontal",
+            label="Normalized Scores",
+            shrink=0.2,
+            aspect=30,
+            location="top",
+        )
+
+    if differentiate_reaction_activation_mean_flag:
+        differentiate_reaction_activation_mean(subgraph, meta_pert_data, cmap)
+
+    if differentiate_reaction_activation_variance_flag:
+        differentiate_reaction_activation_variance(subgraph, meta_pert_data, cmap)
+
+    if differentiate_gene_expression_mean_flag:
+        differentiate_gene_expression_mean(subgraph, meta_pert_data, cmap)
+
+    if differentiate_gene_expression_variance_flag:
+        differentiate_gene_expression_variance(subgraph, meta_pert_data, cmap)
+
+    draw_nodes_and_edges(subgraph, pos)
+    plt.title(f"Subsystem: {subsystem_name} {component}")
+    plt.axis("off")
+    plt.show()
+
+
 def plot_subsystem_graph(
     subsystem_name: str,
     meta_pert_data: MetaPertDataset,
@@ -351,6 +387,8 @@ def plot_subsystem_graph(
     differentiate_perturbed_genes_flag: bool = False,
     differentiate_reaction_activation_mean_flag: bool = False,
     differentiate_reaction_activation_variance_flag: bool = False,
+    differentiate_gene_expression_mean_flag: bool = False,
+    differentiate_gene_expression_variance_flag: bool = False,
     plot_reaction_graph_flag: bool = False,
 ):
     """Plot a directed weighted graph of the given subsystem."""
@@ -368,47 +406,36 @@ def plot_subsystem_graph(
     if plot_reaction_graph_flag:
         apply_plot_reaction_graph(g)
 
+    cmap = plt.cm.viridis
+
+    plot_args = [
+        meta_pert_data,
+        subsystem_name,
+        base_figsize,
+        cmap,
+        differentiate_reaction_activation_mean_flag,
+        differentiate_reaction_activation_variance_flag,
+        differentiate_gene_expression_mean_flag,
+        differentiate_gene_expression_variance_flag,
+    ]
+
     if plot_by_connected_component:
-        for component in nx.weakly_connected_components(g):
+        for i, component in enumerate(nx.weakly_connected_components(g)):
+            # if the number of nodes in the component is less than 2, skip plotting
+            if len(component) < 5:
+                continue
             subgraph = g.subgraph(component)
             pos = nx.nx_agraph.graphviz_layout(subgraph, prog="dot")
-
-            num_nodes = len(subgraph.nodes)
-            figsize = (
-                base_figsize[0] + num_nodes * 0.3,
-                base_figsize[1] + num_nodes * 0.3,
+            plot_single_subgraph(
+                subgraph,
+                pos,
+                *plot_args,
+                component=f"- Component {i + 1}",
             )
-
-            fig, ax = plt.subplots(figsize=figsize)
-
-            if differentiate_reaction_activation_mean_flag:
-                differentiate_reaction_activation_mean(g, meta_pert_data, ax)
-
-            if differentiate_reaction_activation_variance_flag:
-                differentiate_reaction_activation_variance(g, meta_pert_data, ax)
-
-            draw_nodes_and_edges(subgraph, pos, plot_reaction_graph_flag)
-            plt.title(f"Subsystem: {subsystem_name} - Component")
-            plt.axis("off")
-            plt.show()
     else:
         pos = nx.nx_agraph.graphviz_layout(g, prog="dot")
-
-        num_nodes = len(g.nodes)
-        figsize = (
-            base_figsize[0] + num_nodes * 0.3,
-            base_figsize[1] + num_nodes * 0.3,
+        plot_single_subgraph(
+            g,
+            pos,
+            *plot_args,
         )
-
-        fig, ax = plt.subplots(figsize=figsize)
-
-        if differentiate_reaction_activation_mean_flag:
-            differentiate_reaction_activation_mean(g, meta_pert_data, ax)
-
-        if differentiate_reaction_activation_variance_flag:
-            differentiate_reaction_activation_variance(g, meta_pert_data, ax)
-
-        draw_nodes_and_edges(g, pos, plot_reaction_graph_flag)
-        plt.title(f"Subsystem: {subsystem_name}")
-        plt.axis("off")
-        plt.show()
