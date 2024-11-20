@@ -1,11 +1,5 @@
-# Python bytecode cache directories
+# Python bytecode cache directories.
 __pycache__/
 
-# Ruff cache directory
-/.ruff_cache/
-
-# Virtual environment directory
-/.venv/
-
-# Datasets directory
-/datasets/
+# Repositories downloaded by clone_repos.sh.
+/external/
