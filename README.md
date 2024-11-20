@@ -2,17 +2,18 @@
 
 _Linking Perturbation Experiments to Metabolic Graphs Reveals Key Regulatory Mechanisms in Cellular Metabolism_
 
-## Data Preprocessing
+## Development Container
 
-To perform the data preprocessing, run [preprocess_raw_data.py](src/preprocess/preprocess_raw_data.py).
-
-## Compass
-
-A Docker setup for running [Compass](https://github.com/YosefLab/Compass), to characterize cellular metabolic states based on single-cell RNA sequencing and flux balance analysis, is provided in the separate repository [compass-docker](https://github.com/voges/compass-docker).
+This repository provides a [development container](https://code.visualstudio.com/docs/devcontainers/containers) (or devcontainer).
 
 ## Contributing
 
 Please see our [contribution guidelines](CONTRIBUTING.md).
+
+## License
+
+This project is licensed under the MIT License.
+See the [LICENSE](LICENSE) file for details.
 
 ## Contact
 
