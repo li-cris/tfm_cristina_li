@@ -1,32 +1,55 @@
 # Contributing
 
-## Package and Environment Management
+## Development
 
-We use [pip](https://pip.pypa.io) for package and environment management.
+This repository provides a [development container](https://code.visualstudio.com/docs/devcontainers/containers) (or devcontainer).
 
-Here are some useful commands:
+In case you want or need to develop outside of the devcontainer, follow these steps:
 
-```sh
-# Create a virtual environment.
-python3 -m venv .venv
+1. Create a [virtual environment](https://packaging.python.org/en/latest/tutorials/installing-packages/#creating-and-using-virtual-environments).
 
-# Activate a virtual environment.
-source .venv/bin/activate
+2. Install the required dependencies:
+    ```shell
+    pip install --requirement requirements.txt
+    ```
 
-# Install packages from a requirements.txt file.
-pip3 install -r requirements.txt
+3. Install the transmet package in editable mode:
+    ```shell
+    pip install --editable .
+    ```
 
-# Install a package.
-pip3 install <package>
+## Distribution
 
-# Update a requirements file.
-pip3 freeze > requirements.txt
+1. Update the version in [pyproject.toml](pyproject.toml).
+    Use [Semantic Versioning](https://semver.org).
+    Given a version number MAJOR.MINOR.PATCH, increment the:
+    - MAJOR version when you make incompatible API changes,
+    - MINOR version when you add functionality in a backward compatible manner,
+    - PATCH version when you make backward compatible bug fixes.
 
-# Deactivate a virtual environment.
-deactivate
-```
+2. Make a tagged commit:
+    ```shell
+    git add pyproject.toml
+    git commit --message "Your commit message"
+    git tag --annotate vMAJOR.MINOR.PATCH --message "vMAJOR.MINOR.PATCH"
+    git push origin main --tags
+    ```
 
-## Linting & Formatting
+3. Clean previous builds:
+    ```shell
+    rm -rf dist/*
+    ```
 
-We use [Ruff](https://github.com/astral-sh/ruff) to lint and format the code.
-We recommend using the [Ruff extension for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff).
+4. Build the package:
+    ```shell
+    python3 -m build
+    ```
+
+5. Upload the package to TestPyPI and PyPI:
+    ```shell
+    # TestPyPI
+    python3 -m twine upload --repository testpypi dist/*
+
+    # PyPI
+    python3 -m twine upload dist/*
+    ```

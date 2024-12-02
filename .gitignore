@@ -1,5 +1,2 @@
-# Python bytecode cache directories.
 __pycache__/
-
-# Repositories downloaded by clone_repos.sh.
-/external/
+*.egg-info/

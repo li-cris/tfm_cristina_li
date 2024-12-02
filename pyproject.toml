@@ -1,3 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "transmet"
+version = "0.0.1"
+dependencies = [
+    "ipykernel",
+    "pertdata",
+]
+authors = [
+    {name = "Jan Voges"},
+    {name = "Guillermo Dufort y Álvarez"},
+]
+description = "Linking Perturbation Experiments to Metabolic Graphs Reveals Key Regulatory Mechanisms in Cellular Metabolism"
+readme = "README.md"
+license = {file = "LICENSE"}
+
+[project.urls]
+Repository = "https://github.com/voges/transmet.git"
+
 [tool.ruff.lint]
 extend-select = [
     # pycodestyle

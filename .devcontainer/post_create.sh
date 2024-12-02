@@ -8,3 +8,6 @@ sudo apt-get update && sudo apt-get install --yes shellcheck
 
 # Install the Python dependencies.
 pip --disable-pip-version-check install --requirement requirements.txt
+
+# Install transmet in editable mode.
+pip --disable-pip-version-check install --editable .
