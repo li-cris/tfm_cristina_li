@@ -12,6 +12,7 @@
 			]
 		}
 	},
+	"runArgs": ["--name", "transmet"],
 	"postCreateCommand": "bash .devcontainer/post_create.sh",
 	"remoteUser": "vscode"
 }
