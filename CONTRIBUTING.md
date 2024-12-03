@@ -20,7 +20,7 @@ In case you want or need to develop outside of the devcontainer, follow these st
 
 ## Distribution
 
-1. Update the version in [pyproject.toml](pyproject.toml).
+1. Update the version in [version.py](src/transmet/version.py).
     Use [Semantic Versioning](https://semver.org).
     Given a version number MAJOR.MINOR.PATCH, increment the:
     - MAJOR version when you make incompatible API changes,
@@ -29,7 +29,7 @@ In case you want or need to develop outside of the devcontainer, follow these st
 
 2. Make a tagged commit:
     ```shell
-    git add pyproject.toml
+    git add src/transmet/version.py
     git commit --message "Your commit message"
     git tag --annotate vMAJOR.MINOR.PATCH --message "vMAJOR.MINOR.PATCH"
     git push origin main --tags
