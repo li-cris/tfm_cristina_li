@@ -1,6 +1,7 @@
 """Utilities."""
 
 import requests
+from appdirs import user_cache_dir
 
 
 def ensembl_id_to_gene_name(ensembl_id: str) -> str:
@@ -34,3 +35,8 @@ def ensembl_id_to_gene_name(ensembl_id: str) -> str:
         return data.get("display_name", "No gene name found")
     except requests.exceptions.RequestException as e:
         raise ValueError(f"Failed to get gene name from the Ensembl REST API: {e}")
+
+
+def cache_dir_path() -> str:
+    """Return the path to the application cache directory."""
+    return user_cache_dir(appname="pertdata", appauthor=False)
