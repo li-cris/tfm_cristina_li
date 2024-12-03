@@ -42,14 +42,18 @@ In case you want or need to develop outside of the devcontainer, follow these st
 
 4. Build the package:
     ```shell
+    # Using build.
     python3 -m build
+
+    # Or using hatch.
+    hatch build
     ```
 
 5. Upload the package to TestPyPI and PyPI:
     ```shell
-    # TestPyPI
+    # Upload to TestPyPI.
     python3 -m twine upload --repository testpypi dist/*
 
-    # PyPI
+    # Upload to PyPI.
     python3 -m twine upload dist/*
     ```
