@@ -87,7 +87,7 @@ If a connection is unlikely, $M_{\text{soft},ij} \approx 0$, suppressing the att
 ## Pathways
 
 A biological process or pathway can be thought as the set of concerted biochemical reactions
-needed to perform a specific task within the cell (Kanehisa & Goto, 2000; Ashburner et al., 2000).
+needed to perform a specific task within the cell [^1] [^2].
 In the context of this work, we loosely identify a biological process or pathway as the genes contained within it, discarding information regarding other molecules or interactions.
 We will therefore use the term pathway in the rest of the manuscript.
 From this point of view, pathways can simply be thought of as gene sets, where these gene sets can overlap or even contain one another.
@@ -95,13 +95,15 @@ From this point of view, pathways can simply be thought of as gene sets, where t
 Selecting an appropriate set of pathways is crucial for our analyses.
 The ideal selection should include all those pathways that are active in the system under study.
 At the same time, it is desirable to reduce the redundancy that usually comes with large sets of pathways.
-Following Ruiz-Arenas et al. (2024), we considered the Gene Ontology pathways (Ashburner et al., 2020), and selected pathways with less than 30 genes.
-We then discarded those with more than half of their genes in common with other selected processes, as well as those with low replicability as defined in Ruiz-Arenas et al. (2024).
+Following [^3], we considered the Gene Ontology pathways [^1], and selected pathways with less than 30 genes.
+We then discarded those with more than half of their genes in common with other selected processes, as well as those with low replicability as defined in [^3].
 We further refined this selection by including only those pathways that have at least five genes represented in our input datasets, and by removing those that are ancestors of other terms within our list.
 This multi-step selection ensures that the final pathways are (mostly) non-overlapping and cover a large variety of processes in the system under study.
 
 ## References
 
-[Ashburner et al. (2020)](https://doi.org/10.1038/75556)
-[Kanehisa & Goto (2000)](https://doi.org/10.1093/nar/28.1.27)
-[Ruiz-Arenas et al. (2024)](https://doi.org/10.1093/nar/gkae197)
+[^1] [Ashburner et al. (2020)](https://doi.org/10.1038/75556)
+
+[^2] [Kanehisa & Goto (2000)](https://doi.org/10.1093/nar/28.1.27)
+
+[^3] [Ruiz-Arenas et al. (2024)](https://doi.org/10.1093/nar/gkae197)
