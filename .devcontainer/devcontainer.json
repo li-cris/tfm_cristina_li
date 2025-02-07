@@ -1,5 +1,5 @@
 {
-	"name": "SENA",
+	"name": "tadvae",
 	"image": "mcr.microsoft.com/devcontainers/python:1-3.12-bullseye",
 	"customizations": {
 		"vscode": {
@@ -13,7 +13,7 @@
 			]
 		}
 	},
-	"runArgs": ["--name", "SENA"],
+	"runArgs": ["--name", "tadvae"],
 	"postCreateCommand": "bash .devcontainer/post_create.sh",
 	"remoteUser": "vscode"
 }
