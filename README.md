@@ -102,8 +102,8 @@ This multi-step selection ensures that the final pathways are (mostly) non-overl
 
 ## References
 
-[^1] [Ashburner et al. (2020)](https://doi.org/10.1038/75556)
+[^1]: [Ashburner et al. (2020)](https://doi.org/10.1038/75556)
 
-[^2] [Kanehisa & Goto (2000)](https://doi.org/10.1093/nar/28.1.27)
+[^2]: [Kanehisa & Goto (2000)](https://doi.org/10.1093/nar/28.1.27)
 
-[^3] [Ruiz-Arenas et al. (2024)](https://doi.org/10.1093/nar/gkae197)
+[^3]: [Ruiz-Arenas et al. (2024)](https://doi.org/10.1093/nar/gkae197)
