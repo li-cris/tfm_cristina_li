@@ -11,7 +11,7 @@ Hence, the model needs to be able to handle variable-sized inputs (different num
 To accomplish this, we use a Transformer-like architecture with attention to model the pathway mask dynamically.
 The key idea is to replace the fixed pathway mask with an attention-based mechanism that learns context-dependent relationships between genes and pathways.
 This would also allow handling datasets with different genes and pathways flexibly.
-find . -type f -exec du -h {} + | sort -rh
+
 The approach involves the following steps:
 
 1. Tokenize the input:
