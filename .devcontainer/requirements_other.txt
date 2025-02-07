@@ -1,0 +1,5 @@
+# Other packages to be installed from PyPI.
+
+pandas==2.2.3
+pytest==8.3.4
+requests==2.32.3
