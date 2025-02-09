@@ -29,7 +29,7 @@ def _fetch_human_genes_info() -> pd.DataFrame:
     </Query>"""
 
     try:
-        response = requests.post(url, data={"query": query})
+        response = requests.get(url, params={"query": query})
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         raise ValueError(f"Failed to fetch information from Ensembl: {e}")
@@ -54,12 +54,14 @@ def _fetch_human_genes_info() -> pd.DataFrame:
 
 
 def main():  # noqa: D103
+    # Parse command line arguments.
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-o", "--output_file_path", default="ensembl_gene_map.tsv", help="Path to save the output file."
     )
     args = parser.parse_args()
 
+    # Fetch information for all genes in the human genome.
     genes_df = _fetch_human_genes_info()
 
     # Replace missing external_gene_name with "Unknown"
@@ -67,10 +69,12 @@ def main():  # noqa: D103
     unknown_count = genes_df["external_gene_name"].value_counts().get("Unknown", 0)
     print(f"Number of genes with 'Unknown' external_gene_name: {unknown_count}")
 
+    # Filter for protein-coding genes.
     protein_coding_genes_df = genes_df[genes_df["gene_biotype"] == "protein_coding"]
-    protein_coding_genes_df.to_csv(args.output_file_path, sep="\t", index=False)
 
-    print(f"Saved information to: {args.output_file_path}")
+    # Save information to a file.
+    protein_coding_genes_df.to_csv(args.output_file_path, sep="\t", index=False)
+    print(f"Saved Ensembl gene map to: {args.output_file_path}")
 
 
 if __name__ == "__main__":
