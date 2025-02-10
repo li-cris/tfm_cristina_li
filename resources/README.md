@@ -24,7 +24,7 @@ This file contains the GO pathway-genes map from the file [`go_kegg_gene_map.tsv
 
 ## `sena_kegg_gene_map.tsv`
 
-This file contains the KEGG [^2] pathway-genes map from the file [`go_kegg_gene_map.tsv`](https://raw.githubusercontent.com/ML4BM-Lab/SENA/refs/heads/master/data/go_kegg_gene_map.tsv) from the [SENA repository](https://github.com/ML4BM-Lab/SENA).
+This file contains the KEGG [^3] pathway-genes map from the file [`go_kegg_gene_map.tsv`](https://raw.githubusercontent.com/ML4BM-Lab/SENA/refs/heads/master/data/go_kegg_gene_map.tsv) from the [SENA repository](https://github.com/ML4BM-Lab/SENA).
 
 ## References
 
