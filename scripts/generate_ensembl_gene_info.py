@@ -56,25 +56,18 @@ def _fetch_human_genes_info() -> pd.DataFrame:
 def main():  # noqa: D103
     # Parse command line arguments.
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-o", "--output_file_path", default="ensembl_gene_map.tsv", help="Path to save the output file."
-    )
+    parser.add_argument("-o", "--output_file_path", help="Path to save the output file.", required=True)
     args = parser.parse_args()
 
     # Fetch information for all genes in the human genome.
     genes_df = _fetch_human_genes_info()
-
-    # Replace missing external_gene_name with "Unknown"
-    genes_df["external_gene_name"] = genes_df["external_gene_name"].replace("", "Unknown")
-    unknown_count = genes_df["external_gene_name"].value_counts().get("Unknown", 0)
-    print(f"Number of genes with 'Unknown' external_gene_name: {unknown_count}")
 
     # Filter for protein-coding genes.
     protein_coding_genes_df = genes_df[genes_df["gene_biotype"] == "protein_coding"]
 
     # Save information to a file.
     protein_coding_genes_df.to_csv(args.output_file_path, sep="\t", index=False)
-    print(f"Saved Ensembl gene map to: {args.output_file_path}")
+    print(f"Saved Ensembl gene info to: {args.output_file_path}")
 
 
 if __name__ == "__main__":
