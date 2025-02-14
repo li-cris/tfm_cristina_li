@@ -1,6 +1,6 @@
 import torch  # noqa: D100
 
-from transformer_pathway.model import (  # type: ignore
+from tadvae.model import (
     AttentionLayer,
     GeneEmbeddingLayer,
     GenePathwayTransformerEncoder,
