@@ -77,7 +77,7 @@ def test_gene_pathway_transformer_encoder():  # noqa: D103
     model = GenePathwayTransformerEncoder(n_genes, n_pathways, d_embed, n_heads, n_layers)
 
     # Generate random test inputs.
-    gene_indices = torch.randint(0, n_genes, (batch_size, seq_len))
+    gene_indices = torch.randint(low=0, high=n_genes, size=(batch_size, seq_len))
     expression_values = torch.rand(batch_size, seq_len)
 
     # Min-max normalization for the expression values.
