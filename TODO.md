@@ -1,0 +1,4 @@
+- Verify `notebooks/linear_model.ipynb`.
+- Implement pathway mask in `src/tadvae/model.py`.
+- Train SENA.
+- Clean up `README.md`.
