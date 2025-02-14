@@ -3,7 +3,6 @@
         88,
         120
     ],
-    "files.trimTrailingWhitespace": true,
     "notebook.codeActionsOnSave": {
         "notebook.source.fixAll": "explicit",
         "notebook.source.organizeImports": "explicit"
