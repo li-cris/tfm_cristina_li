@@ -7,5 +7,5 @@ sed --in-place '/"\[python\]": {/,/}/d' /home/vscode/.vscode-server/data/Machine
 sudo apt-get update && sudo apt-get install --yes shellcheck
 
 # Install Python packages.
-pip install --disable-pip-version-check --requirement .devcontainer/requirements_torch.txt
 pip install --disable-pip-version-check --requirement .devcontainer/requirements_other.txt
+pip install --disable-pip-version-check --requirement .devcontainer/requirements_torch.txt
