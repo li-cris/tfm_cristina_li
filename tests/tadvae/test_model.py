@@ -45,7 +45,10 @@ def test_scaled_dot_product_attention():  # noqa: D103
     n_heads = 2
     seq_len = 7
     d_embed = 16
-    d_head = d_embed // n_heads  # Ensure d_embed is divisible by n_heads!
+
+    assert d_embed % n_heads == 0
+
+    d_head = d_embed // n_heads
 
     attention_layer = AttentionLayer(d_embed, n_heads)
 
