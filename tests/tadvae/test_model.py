@@ -91,4 +91,3 @@ def test_gene_pathway_transformer_encoder():  # noqa: D103
     output = model(gene_indices, normalized_expression_values)
 
     assert output.shape == torch.Size([batch_size, n_pathways])
-    print(output)
