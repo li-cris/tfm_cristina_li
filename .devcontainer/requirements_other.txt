@@ -1,5 +1,6 @@
 # Other packages to be installed from PyPI.
 
+GitPython==3.1.41
 ipykernel==6.29.5
 matplotlib==3.10.0
 numpy==2.1.3
