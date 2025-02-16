@@ -36,10 +36,10 @@ class AttentionLayer(nn.Module):  # noqa: D101
         assert d_embed % n_heads == 0, "d_embed must be divisible by n_heads."
         self.d_head = d_embed // n_heads
 
-        self.query_linear = nn.Linear(d_embed, d_embed)
-        self.key_linear = nn.Linear(d_embed, d_embed)
-        self.value_linear = nn.Linear(d_embed, d_embed)
-        self.out_linear = nn.Linear(d_embed, d_embed)
+        self.query_linear = nn.Linear(in_features=d_embed, out_features=d_embed)
+        self.key_linear = nn.Linear(in_features=d_embed, out_features=d_embed)
+        self.value_linear = nn.Linear(in_features=d_embed, out_features=d_embed)
+        self.out_linear = nn.Linear(in_features=d_embed, out_features=d_embed)
 
     def scaled_dot_product_attention(  # noqa: D102
         self,
@@ -92,7 +92,7 @@ class GenePathwayTransformerEncoder(nn.Module):  # noqa: D101
         self.gene_embedding_layer = GeneEmbeddingLayer(n_genes, d_embed)
         self.pathway_embeddings = PathwayEmbeddingLayer(n_pathways, d_embed)
         self.attention_layers = nn.ModuleList([AttentionLayer(d_embed, n_heads) for _ in range(n_layers)])
-        self.output_layer = nn.Linear(d_embed, n_pathways)
+        self.output_layer = nn.Linear(in_features=d_embed, out_features=n_pathways)
 
     def forward(self, gene_indices: torch.Tensor, expression_values: torch.Tensor):  # noqa: D102
         batch_size, _ = gene_indices.shape
