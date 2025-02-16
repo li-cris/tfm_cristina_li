@@ -13,7 +13,7 @@
 			]
 		}
 	},
-	"runArgs": ["--name", "tadvae"],
+	"runArgs": ["--name", "tadvae_devcontainer"],
 	"postCreateCommand": "bash .devcontainer/post_create.sh",
 	"remoteUser": "vscode"
 }
