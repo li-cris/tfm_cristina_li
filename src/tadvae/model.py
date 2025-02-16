@@ -1,6 +1,4 @@
-"""Transformer-based gene-pathway interaction model."""
-
-from typing import Tuple
+from typing import Tuple  # noqa: D100
 
 import torch
 import torch.nn as nn
