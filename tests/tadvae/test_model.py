@@ -18,7 +18,7 @@ def test_gene_embedding_layer():  # noqa: D103
     gene_indices = torch.randint(low=0, high=n_genes, size=(batch_size, seq_len))
     expression_values = torch.rand(batch_size, seq_len)
 
-    # Initialize embedding layer and compute gene embeddings.
+    # Initialize gene embedding layer and compute gene embeddings.
     gene_embedding_layer = GeneEmbeddingLayer(n_genes, d_embed)
     embedded_genes = gene_embedding_layer(gene_indices, expression_values)
 
@@ -33,7 +33,7 @@ def test_pathway_embedding_layer():  # noqa: D103
     # Simulate input.
     pathway_indices = torch.arange(start=0, end=n_pathways).repeat(batch_size, 1)
 
-    # Initialize embedding layer and compute pathway embeddings.
+    # Initialize pathway embedding layer and compute pathway embeddings.
     pathway_embedding_layer = PathwayEmbeddingLayer(n_pathways, d_embed)
     embedded_pathways = pathway_embedding_layer(pathway_indices)
 
