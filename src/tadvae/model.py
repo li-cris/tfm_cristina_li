@@ -58,12 +58,12 @@ class AttentionLayer(nn.Module):  # noqa: D101
         batch_size, x1_len, _ = x1.shape
         _, x2_len, _ = x2.shape
 
-        # Compute Q from gene embeddings.
+        # Compute Q from x1 embeddings.
         Q = (  # noqa: N806
             self.query_linear(x1).view(batch_size, x1_len, self.n_heads, self.d_head).transpose(1, 2)
         )  # (batch_size, n_heads, x1_len, d_head)
 
-        # Compute K and V from pathway embeddings.
+        # Compute K and V from x2 embeddings.
         K = (  # noqa: N806
             self.key_linear(x2).view(batch_size, x2_len, self.n_heads, self.d_head).transpose(1, 2)
         )  # (batch_size, n_heads, x2_len, d_head)
