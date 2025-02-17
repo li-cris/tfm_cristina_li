@@ -203,7 +203,7 @@ M_{\text{logits}} =
     \begin{cases}
         0, & \text{if } M_{ij} = 1 \\
         -\infty, & \text{if } M_{ij} = 0
-\end{cases}
+    \end{cases}
 $$
 
 This ensures that genes only contribute to pathways where they are valid.
