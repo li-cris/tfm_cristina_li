@@ -1,11 +1,11 @@
-import tempfile  # noqa: D100
+import tempfile
 
 import numpy as np
 
 from tadvae.utils import load_gene_pathway_mask
 
 
-def test_load_gene_pathway_mask():  # noqa: D103
+def test_load_gene_pathway_mask():
     # Create a mock file with sample data.
     data = """pathway_id\tensembl_gene_id
     pathway1\tgene1
