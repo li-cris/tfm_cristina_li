@@ -26,7 +26,7 @@ def _fetch_human_genes_info() -> pd.DataFrame:
             <Attribute name="strand"/>
             <Attribute name="gene_biotype"/>
         </Dataset>
-    </Query>"""
+    </Query>"""  # noqa: E501
 
     try:
         response = requests.get(url, params={"query": query})

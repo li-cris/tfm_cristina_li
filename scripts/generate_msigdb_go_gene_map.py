@@ -39,7 +39,8 @@ def main():
     # Load the Ensembl gene info file.
     ensembl_gene_info = pd.read_csv(args.ensembl_gene_info_file_path, sep="\t")
 
-    # Merge the pathway_genes_map with the ensembl_gene_info to replace gene names with Ensembl gene IDs.
+    # Merge the pathway_genes_map with the ensembl_gene_info to replace gene names with
+    # Ensembl gene IDs.
     pathway_genes_map = pathway_genes_map.rename(
         columns={"exactSource": "pathway_id", "geneSymbols": "gene_name"}
     )
