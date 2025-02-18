@@ -1,11 +1,13 @@
-from typing import Dict, Tuple  # noqa: D100
+from typing import Dict, Tuple
 
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
 
-def load_gene_pathway_mask(map_file_path: str) -> Tuple[np.ndarray, Dict[str, int], Dict[str, int]]:
+def load_gene_pathway_mask(
+    map_file_path: str,
+) -> Tuple[np.ndarray, Dict[str, int], Dict[str, int]]:
     """Load gene-pathway mask from file.
 
     The pathway-gene map file must be a tab-separated file with two columns:
@@ -38,7 +40,9 @@ def load_gene_pathway_mask(map_file_path: str) -> Tuple[np.ndarray, Dict[str, in
     mask = np.zeros((len(genes), len(pathways)), dtype=int)
 
     # Fill the mask matrix.
-    for _, row in tqdm(df.iterrows(), desc="Loading gene-pathway mask", total=len(df), unit="pathway"):
+    for _, row in tqdm(
+        df.iterrows(), desc="Loading gene-pathway mask", total=len(df), unit="pathway"
+    ):
         gene_idx = gene_to_index[row["ensembl_gene_id"]]
         pathway_idx = pathway_to_index[row["pathway_id"]]
         mask[gene_idx, pathway_idx] = 1
