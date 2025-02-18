@@ -14,14 +14,21 @@ import argparse
 import pandas as pd
 
 
-def main():  # noqa: D103
+def main():
     # Parse command line arguments.
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--input_file_path", help="Path to the input file.", required=True)
     parser.add_argument(
-        "-e", "--ensembl_gene_info_file_path", help="Path to the Ensembl gene info file.", required=True
+        "-i", "--input_file_path", help="Path to the input file.", required=True
     )
-    parser.add_argument("-o", "--output_file_path", help="Path to the output file.", required=True)
+    parser.add_argument(
+        "-e",
+        "--ensembl_gene_info_file_path",
+        help="Path to the Ensembl gene info file.",
+        required=True,
+    )
+    parser.add_argument(
+        "-o", "--output_file_path", help="Path to the output file.", required=True
+    )
     args = parser.parse_args()
 
     # Load the input file and extract the pathway-genes map.
@@ -33,9 +40,14 @@ def main():  # noqa: D103
     ensembl_gene_info = pd.read_csv(args.ensembl_gene_info_file_path, sep="\t")
 
     # Merge the pathway_genes_map with the ensembl_gene_info to replace gene names with Ensembl gene IDs.
-    pathway_genes_map = pathway_genes_map.rename(columns={"exactSource": "pathway_id", "geneSymbols": "gene_name"})
+    pathway_genes_map = pathway_genes_map.rename(
+        columns={"exactSource": "pathway_id", "geneSymbols": "gene_name"}
+    )
     merged_map = pathway_genes_map.merge(
-        ensembl_gene_info, left_on="gene_name", right_on="external_gene_name", how="left"
+        ensembl_gene_info,
+        left_on="gene_name",
+        right_on="external_gene_name",
+        how="left",
     )
     merged_map = merged_map[["pathway_id", "ensembl_gene_id"]]
 

@@ -53,10 +53,12 @@ def _fetch_human_genes_info() -> pd.DataFrame:
     return df
 
 
-def main():  # noqa: D103
+def main():
     # Parse command line arguments.
     parser = argparse.ArgumentParser()
-    parser.add_argument("-o", "--output_file_path", help="Path to save the output file.", required=True)
+    parser.add_argument(
+        "-o", "--output_file_path", help="Path to save the output file.", required=True
+    )
     args = parser.parse_args()
 
     # Fetch information for all genes in the human genome.
