@@ -1,4 +1,4 @@
-import torch  # noqa: D100
+import torch
 
 from tadvae.models import (
     AttentionLayer,
@@ -8,223 +8,201 @@ from tadvae.models import (
 )
 
 
-def test_gene_embedding_layer():  # noqa: D103
-    batch_size = 2
-    n_genes = 100
-    d_embed = 128
-    seq_len = 50
+class TestGeneEmbeddingLayer:
+    def setup_method(self):
+        self.batch_size = 10
+        self.n_genes = 100
+        self.d_embed = 128
+        self.seq_len = 50
 
-    # Simulate input.
-    gene_indices = torch.randint(0, n_genes, (batch_size, seq_len))
-    expression_values = torch.rand((batch_size, seq_len))
+    def test_forward(self):
+        gene_indices = torch.randint(self.n_genes, (self.batch_size, self.seq_len))
+        expression_values = torch.rand((self.batch_size, self.seq_len))
 
-    # Initialize gene embedding layer and compute gene embeddings.
-    gene_embedding_layer = GeneEmbeddingLayer(n_genes, d_embed)
-    embedded_genes = gene_embedding_layer(gene_indices, expression_values)
+        gene_embedding_layer = GeneEmbeddingLayer(self.n_genes, self.d_embed)
+        embedded_genes = gene_embedding_layer(gene_indices, expression_values)
 
-    # Check the shape of the output.
-    assert embedded_genes.shape == torch.Size([batch_size, seq_len, d_embed])
-
-
-def test_pathway_embedding_layer():  # noqa: D103
-    batch_size = 2
-    n_pathways = 20
-    d_embed = 128
-    seq_len = 50
-
-    # Simulate input.
-    pathway_indices = torch.randint(0, n_pathways, (batch_size, seq_len))
-
-    # Initialize pathway embedding layer and compute pathway embeddings.
-    pathway_embedding_layer = PathwayEmbeddingLayer(n_pathways, d_embed)
-    embedded_pathways = pathway_embedding_layer(pathway_indices)
-
-    # Check the shape of the output.
-    assert embedded_pathways.shape == torch.Size([batch_size, seq_len, d_embed])
+        assert embedded_genes.shape == torch.Size(
+            [self.batch_size, self.seq_len, self.d_embed]
+        )
 
 
-def test_attention_layer_scaled_dot_product_attention():  # noqa: D103
-    batch_size = 2
-    n_heads = 2
-    q_len = 5
-    k_len = 7
-    d_embed = 16
-    d_head = d_embed // n_heads
+class TestPathwayEmbeddingLayer:
+    def setup_method(self):
+        self.batch_size = 10
+        self.n_pathways = 20
+        self.d_embed = 128
+        self.seq_len = 50
 
-    # Simulate input.
-    Q = torch.rand(batch_size, n_heads, q_len, d_head)  # noqa: N806
-    K = torch.rand(batch_size, n_heads, k_len, d_head)  # noqa: N806
-    V = torch.rand(batch_size, n_heads, k_len, d_head)  # noqa: N806
+    def test_forward(self):
+        pathway_indices = torch.randint(
+            self.n_pathways, (self.batch_size, self.seq_len)
+        )
 
-    # Initialize attention layer and compute scaled dot-product attention.
-    attention_layer = AttentionLayer(d_embed, n_heads, mask_type=None)
-    output, attn_weights = attention_layer.scaled_dot_product_attention(Q, K, V)
+        pathway_embedding_layer = PathwayEmbeddingLayer(self.n_pathways, self.d_embed)
+        embedded_pathways = pathway_embedding_layer(pathway_indices)
 
-    # Check the shape of the output.
-    assert output.shape == (batch_size, n_heads, q_len, d_head)
-    assert attn_weights.shape == (batch_size, n_heads, q_len, k_len)
-    assert torch.allclose(attn_weights.sum(dim=-1), torch.ones(batch_size, n_heads, q_len), atol=1e-3)
+        assert embedded_pathways.shape == torch.Size(
+            [self.batch_size, self.seq_len, self.d_embed]
+        )
 
 
-def test_attention_layer_scaled_dot_product_attention_hard_mask():  # noqa: D103
-    batch_size = 2
-    n_heads = 2
-    q_len = 5
-    k_len = 7
-    d_embed = 16
-    d_head = d_embed // n_heads
+class TestAttentionLayer:
+    def setup_method(self):
+        self.batch_size = 10
+        self.n_heads = 4
+        self.q_len = 100
+        self.k_len = 20
+        self.d_embed = 16
+        self.d_head = self.d_embed // self.n_heads
 
-    # Simulate input.
-    Q = torch.rand(batch_size, n_heads, q_len, d_head)  # noqa: N806
-    K = torch.rand(batch_size, n_heads, k_len, d_head)  # noqa: N806
-    V = torch.rand(batch_size, n_heads, k_len, d_head)  # noqa: N806
-    W = torch.randint(0, 2, (batch_size, q_len, k_len))  # noqa: N806
+        assert self.d_embed % self.n_heads == 0
 
-    # Initialize attention layer and compute scaled dot-product attention.
-    attention_layer = AttentionLayer(d_embed, n_heads, mask_type="hard")
-    output, attn_weights = attention_layer.scaled_dot_product_attention(Q, K, V, W)
+    def test_scaled_dot_product_attention(self):
+        Q = torch.rand((self.batch_size, self.n_heads, self.q_len, self.d_head))  # noqa: N806
+        K = torch.rand((self.batch_size, self.n_heads, self.k_len, self.d_head))  # noqa: N806
+        V = torch.rand((self.batch_size, self.n_heads, self.k_len, self.d_head))  # noqa: N806
 
-    # Check the shape of the output.
-    assert output.shape == (batch_size, n_heads, q_len, d_head)
-    assert attn_weights.shape == (batch_size, n_heads, q_len, k_len)
-    assert torch.allclose(attn_weights.sum(dim=-1), torch.ones(batch_size, n_heads, q_len), atol=1e-3)
+        attention_layer = AttentionLayer(self.d_embed, self.n_heads, mask_type=None)
+        output, attn_weights = attention_layer.scaled_dot_product_attention(Q, K, V)
 
+        assert output.shape == (self.batch_size, self.n_heads, self.q_len, self.d_head)
+        assert attn_weights.shape == (
+            self.batch_size,
+            self.n_heads,
+            self.q_len,
+            self.k_len,
+        )
+        assert torch.allclose(
+            attn_weights.sum(dim=-1),
+            torch.ones(self.batch_size, self.n_heads, self.q_len),
+        )
 
-def test_attention_layer_scaled_dot_product_attention_soft_mask():  # noqa: D103
-    batch_size = 2
-    n_heads = 2
-    q_len = 5
-    k_len = 7
-    d_embed = 16
-    d_head = d_embed // n_heads
+    def test_scaled_dot_product_attention_hard_mask(self):
+        Q = torch.rand((self.batch_size, self.n_heads, self.q_len, self.d_head))  # noqa: N806
+        K = torch.rand((self.batch_size, self.n_heads, self.k_len, self.d_head))  # noqa: N806
+        V = torch.rand((self.batch_size, self.n_heads, self.k_len, self.d_head))  # noqa: N806
+        W = torch.randint(2, (self.batch_size, self.q_len, self.k_len))  # noqa: N806
 
-    # Simulate input.
-    Q = torch.rand(batch_size, n_heads, q_len, d_head)  # noqa: N806
-    K = torch.rand(batch_size, n_heads, k_len, d_head)  # noqa: N806
-    V = torch.rand(batch_size, n_heads, k_len, d_head)  # noqa: N806
-    W = torch.randint(0, 2, (batch_size, q_len, k_len)).float()  # noqa: N806
+        attention_layer = AttentionLayer(self.d_embed, self.n_heads, mask_type="hard")
+        output, attn_weights = attention_layer.scaled_dot_product_attention(Q, K, V, W)
 
-    # Initialize attention layer and compute scaled dot-product attention.
-    attention_layer = AttentionLayer(d_embed, n_heads, mask_type="soft")
-    output, attn_weights = attention_layer.scaled_dot_product_attention(Q, K, V, W)
+        assert output.shape == (self.batch_size, self.n_heads, self.q_len, self.d_head)
+        assert attn_weights.shape == (
+            self.batch_size,
+            self.n_heads,
+            self.q_len,
+            self.k_len,
+        )
+        assert torch.allclose(
+            attn_weights.sum(dim=-1),
+            torch.ones(self.batch_size, self.n_heads, self.q_len),
+        )
 
-    # Check the shape of the output.
-    assert output.shape == (batch_size, n_heads, q_len, d_head)
-    assert attn_weights.shape == (batch_size, n_heads, q_len, k_len)
-    assert torch.allclose(attn_weights.sum(dim=-1), torch.ones(batch_size, n_heads, q_len), atol=1e-3)
+    def test_scaled_dot_product_attention_soft_mask(self):
+        Q = torch.rand((self.batch_size, self.n_heads, self.q_len, self.d_head))  # noqa: N806
+        K = torch.rand((self.batch_size, self.n_heads, self.k_len, self.d_head))  # noqa: N806
+        V = torch.rand((self.batch_size, self.n_heads, self.k_len, self.d_head))  # noqa: N806
+        W = torch.rand((self.batch_size, self.q_len, self.k_len))  # noqa: N806
 
+        attention_layer = AttentionLayer(self.d_embed, self.n_heads, mask_type="soft")
+        output, attn_weights = attention_layer.scaled_dot_product_attention(Q, K, V, W)
 
-def test_attention_layer():  # noqa: D103
-    batch_size = 2
-    n_heads = 4
-    x1_len = 10
-    x2_len = 15
-    d_embed = 16
+        assert output.shape == (self.batch_size, self.n_heads, self.q_len, self.d_head)
+        assert attn_weights.shape == (
+            self.batch_size,
+            self.n_heads,
+            self.q_len,
+            self.k_len,
+        )
+        assert torch.allclose(
+            attn_weights.sum(dim=-1),
+            torch.ones(self.batch_size, self.n_heads, self.q_len),
+        )
 
-    attention_layer = AttentionLayer(d_embed, n_heads, mask_type=None)
+    def test_forward(self):
+        Q = torch.rand((self.batch_size, self.q_len, self.d_embed))  # noqa: N806
+        K = torch.rand((self.batch_size, self.k_len, self.d_embed))  # noqa: N806
 
-    x1 = torch.rand(batch_size, x1_len, d_embed)
-    x2 = torch.rand(batch_size, x2_len, d_embed)
+        attention_layer = AttentionLayer(self.d_embed, self.n_heads, mask_type=None)
+        output, attn_weights = attention_layer(Q, K)
 
-    output, attn_weights = attention_layer(x1, x2)
-
-    assert output.shape == torch.Size([batch_size, x1_len, d_embed])
-    assert attn_weights.shape == torch.Size([batch_size, n_heads, x1_len, x2_len])
-
-
-def test_gene_pathway_transformer_encoder():  # noqa: D103
-    # Define model parameters.
-    n_genes = 100
-    n_pathways = 100
-    d_embed = 16
-    n_heads = 4
-    n_layers = 2
-    mask_type = None
-    batch_size = 5
-    seq_len = 20
-
-    # Instantiate the model.
-    model = GenePathwayTransformerEncoder(n_genes, n_pathways, d_embed, n_heads, n_layers, mask_type)
-
-    # Generate random test inputs.
-    gene_indices = torch.randint(low=0, high=n_genes, size=(batch_size, seq_len))
-    expression_values = torch.rand(batch_size, seq_len)
-    pathway_indices = torch.randint(low=0, high=n_pathways, size=(batch_size, seq_len))
-
-    # Min-max normalization for the expression values.
-    min_expression_value = torch.min(expression_values)
-    max_expression_value = torch.max(expression_values)
-    normalized_expression_values = (expression_values - min_expression_value) / (
-        max_expression_value - min_expression_value
-    )
-
-    # Run a forward pass.
-    output = model(gene_indices, normalized_expression_values, pathway_indices)
-
-    assert output.shape == torch.Size([batch_size, n_pathways])
+        assert output.shape == torch.Size([self.batch_size, self.q_len, self.d_embed])
+        assert attn_weights.shape == torch.Size(
+            [self.batch_size, self.n_heads, self.q_len, self.k_len]
+        )
 
 
-def test_gene_pathway_transformer_encoder_hard_mask():  # noqa: D103
-    # Define model parameters.
-    n_genes = 100
-    n_pathways = 101
-    d_embed = 16
-    n_heads = 4
-    n_layers = 2
-    mask_type = "hard"
-    batch_size = 5
-    seq_len = 20
+class TestGenePathwayTransformerEncoder:
+    def setup_method(self):
+        self.n_genes = 100
+        self.n_pathways = 20
+        self.d_embed = 16
+        self.n_heads = 4
+        self.n_layers = 2
+        self.batch_size = 5
+        self.genes_len = 50
+        self.pathways_len = 10
 
-    # Instantiate the model.
-    model = GenePathwayTransformerEncoder(n_genes, n_pathways, d_embed, n_heads, n_layers, mask_type)
+    def test_forward(self):
+        gene_indices = torch.randint(self.n_genes, (self.batch_size, self.genes_len))
+        expression_values = torch.rand((self.batch_size, self.genes_len))
+        pathway_indices = torch.randint(
+            self.n_pathways, (self.batch_size, self.pathways_len)
+        )
 
-    # Generate random test inputs.
-    gene_indices = torch.randint(low=0, high=n_genes, size=(batch_size, seq_len))
-    expression_values = torch.rand(batch_size, seq_len)
-    pathway_indices = torch.randint(low=0, high=n_pathways, size=(batch_size, n_pathways))
-    W_hard = torch.randint(0, 2, (batch_size, n_genes, n_pathways))  # noqa: N806
+        model = GenePathwayTransformerEncoder(
+            self.n_genes,
+            self.n_pathways,
+            self.d_embed,
+            self.n_heads,
+            self.n_layers,
+            mask_type=None,
+        )
 
-    # Min-max normalization for the expression values.
-    min_expression_value = torch.min(expression_values)
-    max_expression_value = torch.max(expression_values)
-    normalized_expression_values = (expression_values - min_expression_value) / (
-        max_expression_value - min_expression_value
-    )
+        output = model(gene_indices, expression_values, pathway_indices)
 
-    # Run a forward pass.
-    output = model(gene_indices, normalized_expression_values, pathway_indices, W_hard)
+        assert output.shape == torch.Size([self.batch_size, self.n_pathways])
 
-    assert output.shape == torch.Size([batch_size, n_pathways])
+    def test_forward_hard_mask(self):
+        gene_indices = torch.randint(self.n_genes, (self.batch_size, self.genes_len))
+        expression_values = torch.rand((self.batch_size, self.genes_len))
+        pathway_indices = torch.randint(
+            self.n_pathways, (self.batch_size, self.n_pathways)
+        )
+        W_hard = torch.randint(2, (self.batch_size, self.n_genes, self.n_pathways))  # noqa: N806
 
+        model = GenePathwayTransformerEncoder(
+            self.n_genes,
+            self.n_pathways,
+            self.d_embed,
+            self.n_heads,
+            self.n_layers,
+            mask_type="hard",
+        )
 
-def test_gene_pathway_transformer_encoder_soft_mask():  # noqa: D103
-    # Define model parameters.
-    n_genes = 100
-    n_pathways = 101
-    d_embed = 16
-    n_heads = 4
-    n_layers = 2
-    mask_type = "soft"
-    batch_size = 5
-    seq_len = 20
+        output = model(gene_indices, expression_values, pathway_indices, W_hard)
 
-    # Generate random test inputs.
-    gene_indices = torch.randint(low=0, high=n_genes, size=(batch_size, seq_len))
-    expression_values = torch.rand(batch_size, seq_len)
-    pathway_indices = torch.randint(low=0, high=n_pathways, size=(batch_size, n_pathways))
-    W_init = torch.randint(0, 2, (n_genes, n_pathways))  # noqa: N806
+        assert output.shape == torch.Size([self.batch_size, self.n_pathways])
 
-    # Instantiate the model.
-    model = GenePathwayTransformerEncoder(n_genes, n_pathways, d_embed, n_heads, n_layers, mask_type, W_init)
+    def test_forward_soft_mask(self):
+        gene_indices = torch.randint(self.n_genes, (self.batch_size, self.genes_len))
+        expression_values = torch.rand((self.batch_size, self.genes_len))
+        pathway_indices = torch.randint(
+            self.n_pathways, (self.batch_size, self.n_pathways)
+        )
+        W_init = torch.randint(2, (self.n_genes, self.n_pathways))  # noqa: N806
 
-    # Min-max normalization for the expression values.
-    min_expression_value = torch.min(expression_values)
-    max_expression_value = torch.max(expression_values)
-    normalized_expression_values = (expression_values - min_expression_value) / (
-        max_expression_value - min_expression_value
-    )
+        model = GenePathwayTransformerEncoder(
+            self.n_genes,
+            self.n_pathways,
+            self.d_embed,
+            self.n_heads,
+            self.n_layers,
+            mask_type="soft",
+            W_init=W_init,
+        )
 
-    # Run a forward pass.
-    output = model(gene_indices, normalized_expression_values, pathway_indices)
+        output = model(gene_indices, expression_values, pathway_indices)
 
-    assert output.shape == torch.Size([batch_size, n_pathways])
+        assert output.shape == torch.Size([self.batch_size, self.n_pathways])
