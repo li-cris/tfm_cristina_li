@@ -1,4 +1,4 @@
-import git  # noqa: D100
+import git
 
 
 def get_git_root() -> str:

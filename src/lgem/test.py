@@ -1,7 +1,7 @@
-import torch  # noqa: D100
+import torch
 
 
-def test(model, criterion, test_dataloader):  # noqa: D103
+def test(model, criterion, test_dataloader):
     model.eval()
 
     test_loss = 0.0
@@ -9,9 +9,8 @@ def test(model, criterion, test_dataloader):  # noqa: D103
 
     with torch.no_grad():
         for batch_P, batch_Y in test_dataloader:  # noqa: N806
-            Y_pred = model(batch_P)  # noqa: N806
-            loss = criterion(Y_pred, batch_Y.T)
-            print(f"Test loss: {loss.item():.4f}")
+            Y_predicted = model(batch_P)  # noqa: N806
+            loss = criterion(Y_predicted, batch_Y.T)
             test_loss += loss.item()
             num_batches += 1
 

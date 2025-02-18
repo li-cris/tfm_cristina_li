@@ -1,7 +1,7 @@
-from tqdm import tqdm  # noqa: D100
+from tqdm import tqdm
 
 
-def train(model, criterion, optimizer, train_dataloader, n_epochs):  # noqa: D103
+def train(model, criterion, optimizer, train_dataloader, n_epochs):
     model.train()
 
     pbar = tqdm(range(n_epochs), desc="Training", unit="epoch")
@@ -10,8 +10,8 @@ def train(model, criterion, optimizer, train_dataloader, n_epochs):  # noqa: D10
 
         for batch_P, batch_Y in train_dataloader:  # noqa: N806
             optimizer.zero_grad()
-            Y_pred = model(batch_P)  # noqa: N806
-            loss = criterion(Y_pred, batch_Y.T)  # Transpose back to (n_genes x batch_size).
+            Y_predicted = model(batch_P)  # noqa: N806
+            loss = criterion(Y_predicted, batch_Y.T)
             loss.backward()
             optimizer.step()
             epoch_loss += loss.item()
