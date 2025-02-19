@@ -9,6 +9,8 @@ from tqdm import tqdm
 
 from .utils import get_git_root
 
+torch.serialization.add_safe_globals({"list": list})
+
 
 def load_data(
     dataset_name: str,
@@ -30,9 +32,13 @@ def load_data(
     # Load the data from disk if they exist.
     artifacts_dir_path = os.path.join(get_git_root(), "artifacts", "lgem", dataset_name)
     if os.path.exists(artifacts_dir_path):
-        Y = torch.load(os.path.join(artifacts_dir_path, "Y.pt"))  # noqa: N806
-        perturbations = torch.load(os.path.join(artifacts_dir_path, "perturbations.pt"))
-        genes = torch.load(os.path.join(artifacts_dir_path, "genes.pt"))
+        Y = torch.load(os.path.join(artifacts_dir_path, "Y.pt"), weights_only=True)  # noqa: N806
+        perturbations = torch.load(
+            os.path.join(artifacts_dir_path, "perturbations.pt"), weights_only=True
+        )
+        genes = torch.load(
+            os.path.join(artifacts_dir_path, "genes.pt"), weights_only=True
+        )
         return Y, perturbations, genes
 
     # Load the dataset.

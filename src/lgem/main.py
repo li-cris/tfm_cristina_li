@@ -11,6 +11,8 @@ from .test import test
 from .train import train
 from .utils import get_git_root
 
+torch.serialization.add_safe_globals({"list": list})
+
 
 def main():
     # Parameters.
@@ -52,7 +54,9 @@ def main():
     model_learned = LinearGeneExpressionModelLearned(G, b)
     if os.path.exists(model_learned_file_path):
         print(f"Loading learned model from: {model_learned_file_path}")
-        model_learned.load_state_dict(torch.load(model_learned_file_path))
+        model_learned.load_state_dict(
+            torch.load(model_learned_file_path, weights_only=True)
+        )
     else:
         optimizer = torch.optim.Adam(params=model_learned.parameters(), lr=1e-3)
         model_learned = train(
@@ -63,12 +67,6 @@ def main():
     # Test the learned model.
     test_loss = test(model_learned, criterion, test_dataloader, device)
     print(f"Test loss (learned model): {test_loss:.4f}")
-
-    # Compare the optimized and learned weight matrices.
-    W_optimized = model_optimized.W.detach()  # noqa: N806
-    W_learned = model_learned.W.detach()  # noqa: N806
-    mse = torch.mean((W_optimized - W_learned) ** 2).item()
-    print(f"MSE(W_optimized, W_learned): {mse:.4f}")
 
 
 if __name__ == "__main__":
