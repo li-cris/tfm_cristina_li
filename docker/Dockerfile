@@ -11,4 +11,8 @@ RUN apt-get update && \
         wget && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+COPY requirements.txt .
+
 RUN pip install --root-user-action ignore --upgrade pip
+
+RUN pip install --root-user-action ignore --requirement requirements.txt
