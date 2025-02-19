@@ -2,8 +2,10 @@ import os
 
 import torch
 import torch.nn as nn
+from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader, TensorDataset
 
-from .data import compute_embeddings, create_dataloaders, load_data
+from .data import compute_embeddings, load_data
 from .models import LinearGeneExpressionModelLearned, LinearGeneExpressionModelOptimized
 from .test import test
 from .train import train
@@ -11,47 +13,62 @@ from .utils import get_git_root
 
 
 def main():
-    torch.manual_seed(42)
-
-    dataset_name = "NormanWeissman2019_filtered"
-    Y_train, perturbations, genes = load_data(dataset_name)  # noqa: N806
-
-    G, P, b = compute_embeddings(Y_train, perturbations, genes)  # noqa: N806
-
-    train_dataloader, val_dataloader, test_dataloader = create_dataloaders(
-        Y_train, P, batch_size=32
-    )
-
-    # Set up the learned model.
-    model = LinearGeneExpressionModelLearned(G, b)
+    # Parameters.
+    batch_size = 8
     criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(params=model.parameters(), lr=1e-3)
-    n_epochs = 5000
-    for name, param in model.named_parameters():
-        if param.requires_grad:
-            print(f"Parameter '{name}' will be updated during training.")
+    n_epochs = 1000
 
-    # Train the learned model and save it.
+    # PyTorch setup.
+    torch.manual_seed(42)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Device: {device}")
+
+    # Load the data.
+    dataset_name = "NormanWeissman2019_filtered"
+    Y, perturbations, genes = load_data(dataset_name)  # noqa: N806
+
+    # Compute the embeddings on the entire dataset.
+    G, P, b = compute_embeddings(Y.T, perturbations, genes)  # noqa: N806
+
+    # Split the data into training and test sets and create the dataloaders.
+    Y_train, Y_test, P_train, P_test = train_test_split(  # noqa: N806
+        Y, P, test_size=0.2, random_state=42
+    )
+    train_dataset = TensorDataset(P_train, Y_train)
+    test_dataset = TensorDataset(P_test, Y_test)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+    # Fit the optimized model to the training data.
+    model_optimized = LinearGeneExpressionModelOptimized(Y_train.T, G, P_train, b)
+
+    # Test the optimized model.
+    test_loss = test(model_optimized, criterion, test_dataloader, device)
+    print(f"Test loss (optimized model): {test_loss:.4f}")
+
+    # Load the learned model or train it.
     artifacts_dir_path = os.path.join(get_git_root(), "artifacts", "lgem", dataset_name)
-    model_file_path = os.path.join(artifacts_dir_path, "model.pt")
-    if False:
-        model = train(model, criterion, optimizer, train_dataloader, n_epochs)
-        torch.save(model.state_dict(), model_file_path)
+    model_learned_file_path = os.path.join(artifacts_dir_path, "model_learned.pt")
+    model_learned = LinearGeneExpressionModelLearned(G, b)
+    if os.path.exists(model_learned_file_path):
+        print(f"Loading learned model from: {model_learned_file_path}")
+        model_learned.load_state_dict(torch.load(model_learned_file_path))
+    else:
+        optimizer = torch.optim.Adam(params=model_learned.parameters(), lr=1e-3)
+        model_learned = train(
+            model_learned, criterion, optimizer, train_dataloader, n_epochs, device
+        )
+        torch.save(model_learned.state_dict(), model_learned_file_path)
 
-    # Load the trained model and test it.
-    model_trained = LinearGeneExpressionModelLearned(G, b)
-    model_trained.load_state_dict(torch.load(model_file_path))
-    test(model_trained, criterion, test_dataloader)
+    # Test the learned model.
+    test_loss = test(model_learned, criterion, test_dataloader, device)
+    print(f"Test loss (learned model): {test_loss:.4f}")
 
-    # Fit the optimized model and test it.
-    model_optimized = LinearGeneExpressionModelOptimized(Y_train, G, P, b)
-    test(model_optimized, criterion, test_dataloader)
-
-    # Compare the learned and optimized models.
-    W_trained = model_trained.W.detach()  # noqa: N806
+    # Compare the optimized and learned weight matrices.
     W_optimized = model_optimized.W.detach()  # noqa: N806
-    mse = torch.mean((W_trained - W_optimized) ** 2).item()
-    print(f"Mean squared error between trained and optimized W: {mse:.4f}")
+    W_learned = model_learned.W.detach()  # noqa: N806
+    mse = torch.mean((W_optimized - W_learned) ** 2).item()
+    print(f"MSE(W_optimized, W_learned): {mse:.4f}")
 
 
 if __name__ == "__main__":
