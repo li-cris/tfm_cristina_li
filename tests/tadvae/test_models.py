@@ -144,6 +144,52 @@ class TestGenePathwayTransformerEncoder:
         self.genes_len = 50
         self.pathways_len = 10
 
+    def test_model_parameters(self):
+        W_init = torch.randint(2, (self.n_genes, self.n_pathways))  # noqa: N806
+
+        model = GenePathwayTransformerEncoder(
+            self.n_genes,
+            self.n_pathways,
+            self.d_embed,
+            self.n_heads,
+            n_layers=1,
+            mask_type="soft",
+            W_init=W_init,
+        )
+
+        expected_parameters = {
+            "W_soft": torch.Size([self.n_genes, self.n_pathways]),
+            "gene_embedding_layer.embedding.weight": torch.Size(
+                [self.n_genes, self.d_embed]
+            ),
+            "pathway_embedding_layer.embedding.weight": torch.Size(
+                [self.n_pathways, self.d_embed]
+            ),
+            "attention_layers.0.query_linear.weight": torch.Size(
+                [self.d_embed, self.d_embed]
+            ),
+            "attention_layers.0.query_linear.bias": torch.Size([self.d_embed]),
+            "attention_layers.0.key_linear.weight": torch.Size(
+                [self.d_embed, self.d_embed]
+            ),
+            "attention_layers.0.key_linear.bias": torch.Size([self.d_embed]),
+            "attention_layers.0.value_linear.weight": torch.Size(
+                [self.d_embed, self.d_embed]
+            ),
+            "attention_layers.0.value_linear.bias": torch.Size([self.d_embed]),
+            "attention_layers.0.out_linear.weight": torch.Size(
+                [self.d_embed, self.d_embed]
+            ),
+            "attention_layers.0.out_linear.bias": torch.Size([self.d_embed]),
+            "output_layer.weight": torch.Size([self.n_pathways, self.d_embed]),
+            "output_layer.bias": torch.Size([self.n_pathways]),
+        }
+
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                assert name in expected_parameters
+                assert param.shape == expected_parameters[name]
+
     def test_forward(self):
         gene_indices = torch.randint(self.n_genes, (self.batch_size, self.genes_len))
         expression_values = torch.rand((self.batch_size, self.genes_len))
