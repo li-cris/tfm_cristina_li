@@ -179,7 +179,7 @@ class GenePathwayTransformerEncoder(nn.Module):
         self.mask_type = mask_type
 
         self.gene_embedding_layer = GeneEmbeddingLayer(n_genes, d_embed)
-        self.pathway_embeddings = PathwayEmbeddingLayer(n_pathways, d_embed)
+        self.pathway_embedding_layer = PathwayEmbeddingLayer(n_pathways, d_embed)
         self.attention_layers = nn.ModuleList(
             [AttentionLayer(d_embed, n_heads, mask_type) for _ in range(n_layers)]
         )
@@ -216,7 +216,7 @@ class GenePathwayTransformerEncoder(nn.Module):
             W = None  # noqa: N806
 
         gene_embeddings = self.gene_embedding_layer(gene_indices, expression_values)
-        pathway_embeddings = self.pathway_embeddings(pathway_indices)
+        pathway_embeddings = self.pathway_embedding_layer(pathway_indices)
         for layer in self.attention_layers:
             gene_embeddings, _ = layer(gene_embeddings, pathway_embeddings, W)
         pathway_scores = self.output_layer(gene_embeddings.mean(dim=1))
