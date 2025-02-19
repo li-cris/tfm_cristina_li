@@ -16,7 +16,7 @@ def main():
     # Parameters.
     batch_size = 8
     criterion = nn.MSELoss()
-    n_epochs = 1000
+    n_epochs = 20000
 
     # PyTorch setup.
     torch.manual_seed(42)
