@@ -14,8 +14,8 @@ class LinearGeneExpressionModelLearned(nn.Module):
 
         _, d_embed = G.shape
 
-        self.G = G
-        self.b = b
+        self.register_buffer("G", G)
+        self.register_buffer("b", b)
         self.W = nn.Parameter(data=torch.randn((d_embed, d_embed)))
 
     def forward(self, P: torch.Tensor) -> torch.Tensor:  # noqa: N803
@@ -43,15 +43,15 @@ class LinearGeneExpressionModelOptimized(nn.Module):
 
         _, d_embed = G.shape
 
-        self.G = G
-        self.b = b
-        self.W = None
+        self.register_buffer("G", G)
+        self.register_buffer("b", b)
 
         Y_centered = Y_train - b.unsqueeze(1)  # noqa: N806
         Y_vec = Y_centered.flatten()  # noqa: N806
         Kron_P_G = torch.kron(P, G)  # noqa: N806
         W_vec, _, _, _ = torch.linalg.lstsq(Kron_P_G, Y_vec)  # noqa: N806
-        self.W = W_vec.reshape((d_embed, d_embed))
+
+        self.register_buffer("W", W_vec.reshape((d_embed, d_embed)))
 
     def forward(self, P: torch.Tensor) -> torch.Tensor:  # noqa: N803
         return self.G @ self.W @ P.T + self.b.unsqueeze(1)
