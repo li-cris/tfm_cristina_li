@@ -23,7 +23,7 @@ We are using different Docker containers:
     Run the Docker container:
 
     ```shell
-    docker run --detach --tty --volume $(git rev-parse --show-toplevel):/workspace --gpus all --name tadvae_mlcontainer --user $(id --user):$(id --group) tadvae_pytorch
+    docker run --detach --tty --volume $(git rev-parse --show-toplevel):/workspace --gpus all --name tadvae_mlcontainer tadvae_pytorch
     ```
 
     Access the Docker container:
