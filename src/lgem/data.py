@@ -19,7 +19,7 @@ def load_data(
         dataset_name: Name of the dataset to load.
 
     Returns:
-        Y: Data matrix with shape (n_genes, n_perturbations).
+        Y: Data matrix with shape (n_perturbations, n_genes).
         perturbations: List of perturbations.
         genes: List of genes.
     """
@@ -55,14 +55,14 @@ def load_data(
     # Pseudobulk the data per perturbation.
     n_perturbations = len(perturbations)
     n_genes = len(genes)
-    Y = np.zeros((n_genes, n_perturbations))  # noqa: N806
+    Y = np.zeros((n_perturbations, n_genes))  # noqa: N806
     for i, pert in tqdm(
         enumerate(perturbations),
         desc="Pseudobulking",
         total=n_perturbations,
         unit="perturbation",
     ):
-        Y[:, i] = adata[adata.obs["perturbation"] == pert].X.mean(axis=0)
+        Y[i, :] = adata[adata.obs["perturbation"] == pert].X.mean(axis=0)
     Y = torch.from_numpy(Y).float()  # noqa: N806
 
     # Save the data to disk.
