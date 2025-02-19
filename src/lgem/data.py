@@ -5,7 +5,6 @@ import numpy as np
 import pertdata
 import torch
 from sklearn.decomposition import PCA
-from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
 from .utils import get_git_root
@@ -107,47 +106,3 @@ def compute_embeddings(
     b = Y_train.mean(axis=1)
 
     return torch.from_numpy(G).float(), torch.from_numpy(P).float(), b
-
-
-def create_dataloaders(
-    Y_train: torch.Tensor,  # noqa: N803
-    P: torch.Tensor,  # noqa: N803
-    batch_size: int,
-    val_split: float = 0.2,
-    test_split: float = 0.1,
-) -> Tuple[DataLoader, DataLoader, DataLoader]:
-    """Create dataloaders for training, validation, and testing.
-
-    Args:
-        Y_train: Data matrix with shape (n_genes, n_perturbations).
-        P: Perturbation embedding matrix with shape (n_perturbations, d_embed).
-        batch_size: Batch size.
-        val_split: Fraction of the dataset to include in the validation set.
-        test_split: Fraction of the dataset to include in the test set.
-
-    Returns:
-        train_dataloader: Dataloader for the training set.
-        val_dataloader: Dataloader for the validation set.
-        test_dataloader: Dataloader for the test set.
-    """
-    dataset = TensorDataset(P, Y_train.T)
-
-    # Calculate the sizes of each split.
-    total_size = len(dataset)
-    test_size = int(test_split * total_size)
-    val_size = int(val_split * total_size)
-    train_size = total_size - val_size - test_size
-
-    # Split the dataset.
-    train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(
-        dataset,
-        [train_size, val_size, test_size],
-        generator=torch.Generator().manual_seed(42),
-    )
-
-    # Create the dataloaders.
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_dataloader = DataLoader(val_dataset, batch_size=val_size, shuffle=False)
-    test_dataloader = DataLoader(test_dataset, batch_size=test_size, shuffle=False)
-
-    return train_dataloader, val_dataloader, test_dataloader
