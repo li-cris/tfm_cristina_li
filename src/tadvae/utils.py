@@ -17,7 +17,7 @@ def load_gene_pathway_mask(
         map_file_path: Path to pathway-gene map file.
 
     Returns:
-        mask: Gene-pathway mask as a numpy array with shape (n_genes, n_pathways).
+        mask: Gene-pathway mask with shape (n_genes, n_pathways).
         gene_to_index: Mapping from gene to index.
         pathway_to_index: Mapping from pathway to index.
     """
