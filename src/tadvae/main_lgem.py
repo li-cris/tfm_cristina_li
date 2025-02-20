@@ -5,10 +5,13 @@ import torch.nn as nn
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 
-from .data import compute_embeddings, load_data
-from .models import LinearGeneExpressionModelLearned, LinearGeneExpressionModelOptimized
-from .test import test
-from .train import train
+from .data_lgem import compute_embeddings, load_data
+from .models.lgem import (
+    LinearGeneExpressionModelLearned,
+    LinearGeneExpressionModelOptimized,
+)
+from .test_lgem import test
+from .train_lgem import train
 from .utils import get_git_root
 
 torch.serialization.add_safe_globals({"list": list})

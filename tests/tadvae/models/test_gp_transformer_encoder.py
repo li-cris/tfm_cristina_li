@@ -1,6 +1,6 @@
 import torch
 
-from tadvae.models import (
+from tadvae.models.gp_transformer_encoder import (
     AttentionLayer,
     GeneEmbeddingLayer,
     GenePathwayTransformerEncoder,
