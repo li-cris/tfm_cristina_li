@@ -3,6 +3,7 @@ from typing import List, Tuple
 
 import numpy as np
 import pertdata
+import scanpy as sc
 import torch
 from sklearn.decomposition import PCA
 from tqdm import tqdm
@@ -12,11 +13,14 @@ from .utils import get_git_root
 
 def load_data(
     dataset_name: str,
+    n_top_genes: int | None = None,
 ) -> Tuple[torch.Tensor, List[str], List[str]]:
     """Load gene expression data.
 
     Args:
         dataset_name: Name of the dataset to load.
+        n_top_genes: Number of highly variable genes to keep. If None, all genes are
+            kept.
 
     Returns:
         Y: Data matrix with shape (n_perturbations, n_genes).
@@ -44,13 +48,17 @@ def load_data(
 
     # Get only single perturbations from adata.
     adata = ds.adata
-    adata = adata[adata.obs["nperts"] == 1]
+    adata = adata[adata.obs["nperts"] == 1].copy()
+
+    # Filter genes with low variance.
+    sc.pp.highly_variable_genes(adata, n_top_genes=n_top_genes)
+    adata = adata[:, adata.var.highly_variable].copy()
 
     # Purge perturbations from adata with missing gene expression measurements.
     genes = adata.var_names.tolist()
-    perturbations = adata.obs["perturbation"].unique().tolist()
-    perturbations = [p for p in perturbations if p in adata.var_names]
-    adata = adata[adata.obs["perturbation"].isin(perturbations)]
+    unique_perturbations = adata.obs["perturbation"].unique().tolist()
+    keep_perturbations = [p for p in unique_perturbations if p in genes]
+    adata = adata[adata.obs["perturbation"].isin(keep_perturbations)].copy()
 
     # Pseudobulk the data per perturbation.
     n_perturbations = len(perturbations)

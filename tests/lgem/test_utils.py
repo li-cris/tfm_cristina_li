@@ -2,7 +2,7 @@ import tempfile
 
 import numpy as np
 
-from tadvae.utils import load_gene_pathway_mask
+from lgem.utils import load_gene_pathway_mask
 
 
 def test_load_gene_pathway_mask():
