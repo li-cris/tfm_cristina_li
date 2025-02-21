@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 
 from .data import compute_embeddings, load_data
-from .models.lgem import (
+from .models import (
     LinearGeneExpressionModelLearned,
     LinearGeneExpressionModelOptimized,
 )
