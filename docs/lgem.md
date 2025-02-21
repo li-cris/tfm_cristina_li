@@ -15,7 +15,7 @@ $$
 Here:
 - Data matrix: $Y_{\text{train}}$ (an $n_{\text{genes}} \times n_{\text{perturbations}}$ matrix, i.e., pseudobulked per condition/perturbation).
 - Weight matrix: $W$ (a $d_{\text{embed}} \times d_{\text{embed}}$ matrix to be fitted).
-- Bias vector: $b$ (an vector with $n_{\text{genes}}$ elements of average gene expression values).
+- Bias vector: $b$ (a vector with $n_{\text{genes}}$ elements of average gene expression values).
 
 The model then predicts gene expression values using:
 
@@ -30,7 +30,7 @@ Note: The bias vector $b$ is added to each column of the matrix $G W P^\top$.
 This operation effectively _broadcasts_ $b$ across all $n_{\text{perturbations}}$ columns of $G W P^\top$.
 
 In [^1], to obtain the embeddings $G$ and $P$, they performed a principal component analysis (PCA) on $Y_{\text{train}}$ and used the top $d_{\text{embed}}$ principal components for $G$.
-They then subset this $G$ to only those rows corresponding to genes that have been perturbed in the training data (and hence appear as columns in $Y_{\text{train}}$) and used the resulting matrix for $P$.
+They then subset this $G$ to only those rows corresponding to genes that have been perturbed in the training data (and hence appear as columns in $Y_{\text{train}}$), and used the resulting matrix for $P$.
 
 To fit the weight matrix $W$, we vectorize the equation $Y_{\text{centered}} = Y_{\text{train}} - b = G W P^\top$ and set it up in a form suitable for least squares.
 
