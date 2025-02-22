@@ -1,5 +1,3 @@
-import os
-
 import torch
 import torch.nn as nn
 from sklearn.model_selection import train_test_split
@@ -51,21 +49,12 @@ def main():
     test_loss = test(model_optimized, criterion, test_dataloader, device)
     print(f"Test loss (optimized model): {test_loss:.4f}")
 
-    # Load the learned model or train it.
-    artifacts_dir_path = os.path.join(get_git_root(), "artifacts", "lgem", dataset_name)
-    model_learned_file_path = os.path.join(artifacts_dir_path, "model_learned.pt")
+    # Fit the learned model to the training data.
     model_learned = LinearGeneExpressionModelLearned(G, b)
-    if os.path.exists(model_learned_file_path):
-        print(f"Loading learned model from: {model_learned_file_path}")
-        model_learned.load_state_dict(
-            torch.load(model_learned_file_path, weights_only=True)
-        )
-    else:
-        optimizer = torch.optim.Adam(params=model_learned.parameters(), lr=1e-3)
-        model_learned = train(
-            model_learned, criterion, optimizer, train_dataloader, n_epochs, device
-        )
-        torch.save(model_learned.state_dict(), model_learned_file_path)
+    optimizer = torch.optim.Adam(params=model_learned.parameters(), lr=1e-3)
+    model_learned = train(
+        model_learned, criterion, optimizer, train_dataloader, n_epochs, device
+    )
 
     # Test the learned model.
     test_loss = test(model_learned, criterion, test_dataloader, device)
