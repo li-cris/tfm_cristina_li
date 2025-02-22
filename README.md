@@ -1,10 +1,12 @@
-# Transformer-Based Activity Discrepancy Variational Autoencoder
+# Systematic Perturbation Prediction
 
-## Docker
+## Todo
 
-We are using different Docker containers:
+[`src/gears/mmd_loss.py`](src/gears/mmd_loss.py):
+- Improve.
+- Can it only be used with batches?
+- Make similar functionality for other metrics.
 
-- `sypp_devcontainer`
-
-    A [Dev Container](https://code.visualstudio.com/docs/devcontainers/containers) for developing with [Visual Studio Code](https://code.visualstudio.com).
-    It is configured by the files in the folder [`.devcontainer`](.devcontainer).
+[`src/gears/train_predict_evaluate.py`](src/gears/train_predict_evaluate.py):
+- Run, understand, and improve.
+- Extend to other tools (framework?).
