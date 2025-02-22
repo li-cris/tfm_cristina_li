@@ -10,9 +10,6 @@ from .models import (
 )
 from .test import test
 from .train import train
-from .utils import get_git_root
-
-torch.serialization.add_safe_globals({"list": list})
 
 
 def main():
