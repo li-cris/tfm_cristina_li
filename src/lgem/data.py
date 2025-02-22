@@ -3,7 +3,6 @@ from typing import List, Tuple
 
 import numpy as np
 import pertdata
-import scanpy as sc
 import torch
 from sklearn.decomposition import PCA
 from tqdm import tqdm
@@ -11,20 +10,20 @@ from tqdm import tqdm
 from .utils import get_git_root
 
 
-def load_data(
+def load_pseudobulk_data(
     dataset_name: str,
-    n_top_genes: int | None = None,
 ) -> Tuple[torch.Tensor, List[str], List[str]]:
-    """Load gene expression data.
+    """Load pseudobulked gene expression data.
+
+    Supported datasets:
+    - NormanWeissman2019_filtered
 
     Args:
         dataset_name: Name of the dataset to load.
-        n_top_genes: Number of highly variable genes to keep. If None, all genes are
-            kept.
 
     Returns:
         Y: Data matrix with shape (n_perturbations, n_genes).
-        perturbations: List of perturbations.
+        perts: List of perturbations.
         genes: List of genes.
     """
     # Check if we support the dataset.
@@ -33,11 +32,15 @@ def load_data(
 
     # Load the data from disk if they exist.
     artifacts_dir_path = os.path.join(get_git_root(), "artifacts", "lgem", dataset_name)
+    Y_file_path = os.path.join(artifacts_dir_path, "Y.pt")  # noqa: N806
+    perts_file_path = os.path.join(artifacts_dir_path, "perts.pt")
+    genes_file_path = os.path.join(artifacts_dir_path, "genes.pt")
     if os.path.exists(artifacts_dir_path):
-        Y = torch.load(os.path.join(artifacts_dir_path, "Y.pt"))  # noqa: N806
-        perturbations = torch.load(os.path.join(artifacts_dir_path, "perturbations.pt"))
-        genes = torch.load(os.path.join(artifacts_dir_path, "genes.pt"))
-        return Y, perturbations, genes
+        return (
+            torch.load(Y_file_path),
+            torch.load(perts_file_path),
+            torch.load(genes_file_path),
+        )
 
     # Load the dataset.
     ds = pertdata.PertDataset(
@@ -46,45 +49,38 @@ def load_data(
         silent=False,
     )
 
-    # Get only single perturbations from adata.
-    adata = ds.adata
-    adata = adata[adata.obs["nperts"] == 1].copy()
-
-    # Filter genes with low variance.
-    sc.pp.highly_variable_genes(adata, n_top_genes=n_top_genes)
-    adata = adata[:, adata.var.highly_variable].copy()
+    # Get only single perturbations.
+    adata = ds.adata[ds.adata.obs["nperts"] == 1].copy()
 
     # Purge perturbations from adata with missing gene expression measurements.
     genes = adata.var_names.tolist()
-    unique_perturbations = adata.obs["perturbation"].unique().tolist()
-    keep_perturbations = [p for p in unique_perturbations if p in genes]
-    adata = adata[adata.obs["perturbation"].isin(keep_perturbations)].copy()
+    perts = adata.obs["perturbation"].unique().tolist()
+    adata = adata[
+        adata.obs["perturbation"].isin([p for p in perts if p in genes])
+    ].copy()
+    perts = adata.obs["perturbation"].unique().tolist()
 
     # Pseudobulk the data per perturbation.
-    n_perturbations = len(perturbations)
+    n_perts = len(perts)
     n_genes = len(genes)
-    Y = np.zeros((n_perturbations, n_genes))  # noqa: N806
+    Y = torch.zeros((n_perts, n_genes), dtype=torch.float32)  # noqa: N806
     for i, pert in tqdm(
-        enumerate(perturbations),
-        desc="Pseudobulking",
-        total=n_perturbations,
-        unit="perturbation",
+        enumerate(perts), desc="Pseudobulking", total=n_perts, unit="perturbation"
     ):
-        Y[i, :] = adata[adata.obs["perturbation"] == pert].X.mean(axis=0)
-    Y = torch.from_numpy(Y).float()  # noqa: N806
+        Y[i, :] = torch.Tensor(adata[adata.obs["perturbation"] == pert].X.mean(axis=0))
 
     # Save the data to disk.
     os.makedirs(artifacts_dir_path)
-    torch.save(Y, os.path.join(artifacts_dir_path, "Y.pt"))
-    torch.save(perturbations, os.path.join(artifacts_dir_path, "perturbations.pt"))
-    torch.save(genes, os.path.join(artifacts_dir_path, "genes.pt"))
+    torch.save(Y, Y_file_path)
+    torch.save(perts, perts_file_path)
+    torch.save(genes, genes_file_path)
 
-    return Y, perturbations, genes
+    return Y, perts, genes
 
 
 def compute_embeddings(
     Y: torch.Tensor,  # noqa: N803
-    perturbations: List[str],
+    perts: List[str],
     genes: List[str],
     d_embed: int = 10,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -92,7 +88,7 @@ def compute_embeddings(
 
     Args:
         Y: Data matrix with shape (n_genes, n_perturbations).
-        perturbations: List of perturbations.
+        perts: List of perturbations.
         genes: List of genes.
         d_embed: Embedding dimension.
 
@@ -108,7 +104,7 @@ def compute_embeddings(
 
     # Extract perturbation embeddings P from G by subsetting G to only those rows
     # corresponding to genes that have been perturbed in the data.
-    P = G[np.where(np.isin(genes, perturbations))[0], :]  # noqa: N806
+    P = G[np.where(np.isin(genes, perts))[0], :]  # noqa: N806
 
     # Compute b as the average expression of each gene across all perturbations.
     b = Y.mean(axis=1)
