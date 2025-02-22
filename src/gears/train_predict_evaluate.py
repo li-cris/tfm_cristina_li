@@ -1,4 +1,4 @@
-import argparse  # noqa: D100
+import argparse
 import itertools
 import os
 
@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import torch
 from anndata import AnnData
-from mmd_loss import MMDLoss  # type: ignore # noqa: E402
+from mmd_loss import MMDLoss
 from scipy.sparse import csr_matrix
 
 from gears import GEARS, PertData
@@ -196,7 +196,7 @@ def evaluate_double(adata: AnnData, model_name: str):
             )
 
 
-def main():  # noqa: D103
+def main():
     # Parse the command line arguments.
     parser = argparse.ArgumentParser(description="Train, predict, evaluate GEARS.")
     parser.add_argument("--split", type=str, default="no_test", help="Data split.")

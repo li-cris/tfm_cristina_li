@@ -4,15 +4,15 @@ import torch
 import torch.nn as nn
 
 
-class MMDLoss(nn.Module):  # noqa: D101
-    def __init__(self, kernel_mul=2.0, kernel_num=5, fix_sigma=None):  # noqa: D107
+class MMDLoss(nn.Module):
+    def __init__(self, kernel_mul=2.0, kernel_num=5, fix_sigma=None):
         super().__init__()
         self.kernel_num = kernel_num
         self.kernel_mul = kernel_mul
         self.fix_sigma = fix_sigma
         return
 
-    def gaussian_kernel(  # noqa: D102
+    def gaussian_kernel(
         self, source, target, kernel_mul=2.0, kernel_num=5, fix_sigma=None
     ):
         n_samples = int(source.size()[0]) + int(target.size()[0])
@@ -37,7 +37,7 @@ class MMDLoss(nn.Module):  # noqa: D101
         ]
         return sum(kernel_val)
 
-    def forward(self, source, target):  # noqa: D102
+    def forward(self, source, target):
         batch_size = int(source.size()[0])
         kernels = self.gaussian_kernel(
             source,
