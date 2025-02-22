@@ -1,6 +1,14 @@
 # Systematic Perturbation Prediction
 
-## Todo
+## Linear Gene Expression Model
+
+Train and test two versions of the linear gene expression model ("optimized" and "learned"):
+
+```shell
+python3 -m src.lgem.main
+```
+
+## Cristina's Todos
 
 [`src/gears/mmd_loss.py`](src/gears/mmd_loss.py):
 - Improve.
