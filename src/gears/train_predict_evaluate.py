@@ -29,10 +29,7 @@ def train(
     gears_model.model_initialize(hidden_size=hidden_size)
     gears_model.train(epochs=20)
     model_name = (
-        f"gears_norman_"
-        f"split_{split}_"
-        f"seed_{str(seed)}_"
-        f"hidden_size_{str(hidden_size)}"
+        f"gears_norman_split_{split}_seed_{str(seed)}_hidden_size_{str(hidden_size)}"
     )
     gears_model.save_model(path=os.path.join(MODELS_DIR_PATH, model_name))
     return model_name
@@ -83,7 +80,7 @@ def predict(pert_data: PertData, device: str, model_name: str) -> None:
         with open(file=single_results_file_path, mode="w") as f:
             print(f"single,{var_names_str}", file=f)
             for i, g in enumerate(single_perturbations):
-                print(f"Predicting single {i+1}/{len(single_perturbations)}: {g}")
+                print(f"Predicting single {i + 1}/{len(single_perturbations)}: {g}")
                 prediction = gears_model.predict(pert_list=[[g]])
                 single = next(iter(prediction.keys()))
                 expressions = prediction[single]
@@ -98,7 +95,7 @@ def predict(pert_data: PertData, device: str, model_name: str) -> None:
         with open(file=double_results_file_path, mode="w") as f:
             print(f"double,{var_names_str}", file=f)
             for i, d in enumerate(double_perturbations):
-                print(f"Predicting double {i+1}/{len(double_perturbations)}: {d}")
+                print(f"Predicting double {i + 1}/{len(double_perturbations)}: {d}")
                 prediction = gears_model.predict(pert_list=[d.split("+")])
                 double = next(iter(prediction.keys()))
                 expressions = prediction[double]
@@ -113,7 +110,7 @@ def predict(pert_data: PertData, device: str, model_name: str) -> None:
         with open(file=combo_results_file_path, mode="w") as f:
             print(f"combo,{var_names_str}", file=f)
             for i, c in enumerate(combo_perturbations):
-                print(f"Predicting combo {i+1}/{len(combo_perturbations)}: {c}")
+                print(f"Predicting combo {i + 1}/{len(combo_perturbations)}: {c}")
                 prediction = gears_model.predict(pert_list=[c])
                 combo = next(iter(prediction.keys()))
                 expressions = prediction[combo]
@@ -146,7 +143,7 @@ def evaluate_double(adata: AnnData, model_name: str):
 
             # Get all the true GEPs with the current double perturbation.
             double = double.replace("_", "+")
-            print(f"Evaluating double {i+1}/{len(df['double'])}: {double}")
+            print(f"Evaluating double {i + 1}/{len(df['double'])}: {double}")
             true_geps = adata[adata.obs["condition"] == double]
             n = true_geps.n_obs
 
