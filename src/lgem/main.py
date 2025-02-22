@@ -30,10 +30,10 @@ def main():
 
     # Load the data.
     dataset_name = "NormanWeissman2019_filtered"
-    Y, perturbations, genes = load_data(dataset_name)  # noqa: N806
+    Y, perts, genes = load_pseudobulk_data(dataset_name)  # noqa: N806
 
     # Compute the embeddings on the entire dataset.
-    G, P, b = compute_embeddings(Y.T, perturbations, genes)  # noqa: N806
+    G, P, b = compute_embeddings(Y.T, perts, genes)  # noqa: N806
 
     # Split the data into training and test sets and create the dataloaders.
     Y_train, Y_test, P_train, P_test = train_test_split(  # noqa: N806
