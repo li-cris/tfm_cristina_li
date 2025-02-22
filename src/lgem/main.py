@@ -3,7 +3,7 @@ import torch.nn as nn
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 
-from .data import compute_embeddings, load_data
+from .data import compute_embeddings, load_pseudobulk_data
 from .models import (
     LinearGeneExpressionModelLearned,
     LinearGeneExpressionModelOptimized,
