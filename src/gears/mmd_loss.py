@@ -10,7 +10,6 @@ class MMDLoss(nn.Module):
         self.kernel_num = kernel_num
         self.kernel_mul = kernel_mul
         self.fix_sigma = fix_sigma
-        return
 
     def gaussian_kernel(
         self, source, target, kernel_mul=2.0, kernel_num=5, fix_sigma=None
