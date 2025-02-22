@@ -1,5 +1,3 @@
-"""MMD Loss."""
-
 import torch
 import torch.nn as nn
 
@@ -16,7 +14,6 @@ class MMDLoss(nn.Module):
     ):
         n_samples = int(source.size()[0]) + int(target.size()[0])
         total = torch.cat([source, target], dim=0)
-
         total0 = total.unsqueeze(0).expand(
             int(total.size(0)), int(total.size(0)), int(total.size(1))
         )
