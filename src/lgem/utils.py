@@ -38,7 +38,7 @@ def load_gene_pathway_mask(
     genes = df["ensembl_gene_id"].unique()
     pathways = df["pathway_id"].unique()
 
-    # Create a mapping from gene to index and pathway to index.
+    # Create mappings: gene -> index, pathway -> index.
     gene_to_index = {gene: idx for idx, gene in enumerate(genes)}
     pathway_to_index = {pathway: idx for idx, pathway in enumerate(pathways)}
 
