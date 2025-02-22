@@ -6,6 +6,5 @@ pandas==2.2.3
 pertdata==1.1.6
 pytest==8.3.4
 requests==2.32.3
-scanpy==1.10.4
 scikit-learn==1.6.1
 tqdm==4.67.1
