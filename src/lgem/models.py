@@ -29,7 +29,7 @@ class LinearGeneExpressionModelOptimized(nn.Module):
         Y_train: torch.Tensor,  # noqa: N803
         G: torch.Tensor,  # noqa: N803
         P: torch.Tensor,  # noqa: N803
-        b: torch.Tensor,  # noqa: N803
+        b: torch.Tensor,
     ) -> None:
         """Linear gene expression model, optimized using a least squared problem solver.
 
