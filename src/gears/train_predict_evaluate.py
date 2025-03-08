@@ -139,7 +139,9 @@ def evaluate_double(adata: AnnData, model_name: str):
         for i, double in enumerate(df["double"]):
             # Get the predicted GEP for the current double perturbation.
             pred_gep = df.loc[df["double"] == double]
-            pred_gep = df.iloc[0, 1:].tolist()
+            
+            # This only takes 1 row, redundant in this case because only 1 prediction GEP
+            # pred_gep = df.iloc[0, 1:].tolist()
 
             # Get all the true GEPs with the current double perturbation.
             double = double.replace("_", "+")
@@ -155,7 +157,9 @@ def evaluate_double(adata: AnnData, model_name: str):
             ctrl_geps = all_ctrl_geps[random_indices, :]
 
             # Copy the predicted GEP n times.
-            pred_geps = csr_matrix(np.tile(pred_gep, reps=(n, 1)))
+            # pred_geps = csr_matrix(np.tile(pred_gep, reps=(n, 1)))
+            # Copying doesn't change variability within group and increases XX value while decreasing XY (makes XX + YY - XY -YX) higher than it should
+            # Usually MMD compares ditributions between groups, 1 sample in XX (pred) is more like 1 point instead of a distribution 
 
             # Convert to tensors.
             true_geps_tensor = torch.tensor(true_geps.X.toarray())
