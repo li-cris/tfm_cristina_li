@@ -139,9 +139,9 @@ def evaluate_double(adata: AnnData, model_name: str):
         for i, double in enumerate(df["double"]):
             # Get the predicted GEP for the current double perturbation.
             pred_geps = df.loc[df["double"] == double]
+            pred_geps = pred_geps.iloc[0, 1:].tolist()
             
             # This only takes 1 row, redundant in this case because only 1 prediction GEP
-            # pred_gep = df.iloc[0, 1:].tolist()
 
             # Get all the true GEPs with the current double perturbation.
             double = double.replace("_", "+")
