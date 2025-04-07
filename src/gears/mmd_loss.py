@@ -31,7 +31,7 @@ class MMDLoss(nn.Module):
             torch.exp(-l2_distance / bandwidth_temp)
             for bandwidth_temp in bandwidth_list
         ]
-        return sum(kernel_val) # Magnitude of this kernel increases...? That would also lead to increase of MMD loss...?
+        return sum(kernel_val)
 
     def forward(self, source, target):
         batch_size = int(source.size()[0])
@@ -45,6 +45,5 @@ class MMDLoss(nn.Module):
         XX = kernels[:batch_size, :batch_size]  # noqa: N806
         YY = kernels[batch_size:, batch_size:]  # noqa: N806
         XY = kernels[:batch_size, batch_size:]  # noqa: N806
-        YX = kernels[batch_size:, :batch_size]  # noqa: N806
         loss = torch.mean(XX) + torch.mean(YY) - 2*torch.mean(XY)
         return loss

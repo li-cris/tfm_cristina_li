@@ -1,6 +1,11 @@
 import argparse
 import itertools
 import os
+import sys
+
+path = os.path.abspath('../sypp/src/gears/')
+print(path)
+sys.path.insert(0, path)
 
 import numpy as np
 import pandas as pd
@@ -118,7 +123,6 @@ def predict(pert_data: PertData, device: str, model_name: str) -> None:
                 expressions_str = ",".join(map(str, expressions))
                 print(f"{combo},{expressions_str}", file=f)
 
-
 def evaluate_double(adata: AnnData, model_name: str):
     """Evaluate the predicted GEPs of double perturbations."""
     # Load predicted GEPs.
@@ -128,7 +132,7 @@ def evaluate_double(adata: AnnData, model_name: str):
 
     # Make results file path.
     results_file_path = os.path.join(
-        RESULTS_DIR_PATH, f"{model_name}_double_metrics.csv"
+        RESULTS_DIR_PATH, f"{model_name}_double_change_metrics.csv"
     )
 
     with open(file=results_file_path, mode="w") as f:
@@ -156,42 +160,51 @@ def evaluate_double(adata: AnnData, model_name: str):
             else:
                 n = true_geps.n_obs
 
-            # Get n random control GEPs.
+            # Obtaining random sample of ctrl GEP
             all_ctrl_geps = adata[adata.obs["condition"] == "ctrl"]
             random_indices = np.random.choice(
                 all_ctrl_geps.n_obs, size=n, replace=False
             )
             ctrl_geps = all_ctrl_geps[random_indices, :]
+            pred_geps = csr_matrix(np.tile(pred_geps, reps=(n, 1)))
 
-            # Convert to tensors.
-            true_geps_tensor = torch.tensor(true_geps.X.toarray())
+            # Another random ctrl_gep
+            random_indices_2 = np.random.choice(
+                all_ctrl_geps.n_obs, size=n, replace=False
+            )
+            ctrl_geps_2 = all_ctrl_geps[random_indices_2, :]
+
+            # Tensor conversion and differential expression
             ctrl_geps_tensor = torch.tensor(ctrl_geps.X.toarray())
-            pred_geps_tensor = torch.tensor(pred_geps)
+            ctrl_ctrl_geps_tensor = torch.tensor(ctrl_geps_2.X.toarray()) - ctrl_geps_tensor
+            true_ctrl_geps_tensor = torch.tensor(true_geps.X.toarray()) - ctrl_geps_tensor
+            pred_ctrl_geps_tensor = torch.tensor(pred_geps.toarray()) - ctrl_geps_tensor
 
             # MMD setup.
             mmd_sigma = 200.0
             kernel_num = 10
             mmd_loss = MMDLoss(fix_sigma=mmd_sigma, kernel_num=kernel_num)
 
-            # Compute MMD for the entire batch.
+            # Compute MMD 
             mmd_true_vs_ctrl = mmd_loss.forward(
-                source=ctrl_geps_tensor, target=true_geps_tensor
-            )
+                            source=ctrl_ctrl_geps_tensor, target=true_ctrl_geps_tensor
+                        )
+
             mmd_true_vs_pred = mmd_loss.forward(
-                source=pred_geps_tensor, target=true_geps_tensor
+                source=pred_ctrl_geps_tensor, target=true_ctrl_geps_tensor
             )
 
-            # Compute MSE for the entire batch.
+            # Compute MSE
             mse_true_vs_ctrl = torch.mean(
-                (true_geps_tensor - ctrl_geps_tensor) ** 2
+                (true_ctrl_geps_tensor - ctrl_ctrl_geps_tensor) ** 2
             ).item()
             mse_true_vs_pred = torch.mean(
-                (true_geps_tensor - pred_geps_tensor) ** 2
+                (true_ctrl_geps_tensor - pred_ctrl_geps_tensor) ** 2
             ).item()
 
             # Compute KLD
-            kld_true_vs_ctrl = compute_kld(true_geps_tensor, ctrl_geps_tensor)
-            kld_true_vs_pred = compute_kld(true_geps_tensor, pred_geps_tensor)
+            kld_true_vs_ctrl = compute_kld(true_ctrl_geps_tensor, ctrl_ctrl_geps_tensor)
+            kld_true_vs_pred = compute_kld(true_ctrl_geps_tensor, pred_ctrl_geps_tensor)
 
             print(f"MMD (true vs. control):   {mmd_true_vs_ctrl:10.6f}")
             print(f"MMD (true vs. predicted): {mmd_true_vs_pred:10.6f}")
@@ -233,6 +246,24 @@ def main():
     norman = PertData(data_path=DATA_DIR_PATH)
     norman.load(data_name="norman")
 
+    # Keep only SINGLE data for training
+    print("Keeping only single perturbations.")
+    splitting = norman.adata.obs['condition'].str.split('+')
+    for i in range(len(splitting)):
+        if len(splitting[i]) == 2:
+            if 'ctrl' in splitting[i]:
+                splitting[i].remove('ctrl')
+
+    join_names = splitting.apply(lambda x: '+'.join(sorted(x)))
+    norman.adata.obs['condition_fixed'] = join_names
+
+    filter_mask = ~norman.adata.obs["condition_fixed"].str.contains(r"\+") # mask for those NOT containing +
+    indexes_to_keep = filter_mask[filter_mask].index # mask that finds indeces in norman adata that aren't double perturbations
+    adata_single = norman.adata[indexes_to_keep].copy()
+
+    # changing norman.adata
+    norman.adata = adata_single
+
     # Split data and get dataloaders. This is the same procedure as used for Figure 4 in
     # the GEARS paper.
     # See also: https://github.com/yhr91/GEARS_misc/blob/main/paper/Fig4_UMAP_train.py
@@ -253,6 +284,8 @@ def main():
     predict(pert_data=norman, device=args.device, model_name=model_name)
 
     # Evaluate.
+    norman = PertData(data_path=DATA_DIR_PATH)
+    norman.load(data_name="norman")
     evaluate_double(adata=norman.adata, model_name=model_name)
 
 
