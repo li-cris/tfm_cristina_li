@@ -3,7 +3,7 @@ import itertools
 import os
 import sys
 
-path = os.path.abspath('../sypp/src/gears/')
+path = os.path.abspath('../sypp/src/gears_tools/')
 print(path)
 sys.path.insert(0, path)
 
