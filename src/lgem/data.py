@@ -7,7 +7,7 @@ import torch
 from sklearn.decomposition import PCA
 from tqdm import tqdm
 
-from .utils import get_git_root
+from utils import get_git_root
 
 
 def load_pseudobulk_data(

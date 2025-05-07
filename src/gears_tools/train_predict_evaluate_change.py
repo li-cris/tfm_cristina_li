@@ -27,7 +27,7 @@ PREDICT_COMBO = False
 
 
 def train(
-    pert_data: PertData, split: str, seed: int, hidden_size: int, device: str
+    pert_data: PertData, dataset_name: str, split: str, seed: int, hidden_size: int, device: str
 ) -> str:
     """Set up, train, and save GEARS model."""
     print("Training GEARS model.")
@@ -35,7 +35,7 @@ def train(
     gears_model.model_initialize(hidden_size=hidden_size)
     gears_model.train(epochs=20)
     model_name = (
-        f"gears_norman_split_{split}_seed_{str(seed)}_hidden_size_{str(hidden_size)}"
+        f"gears_{dataset_name}_split_{split}_seed_{str(seed)}_hidden_size_{str(hidden_size)}"
     )
     gears_model.save_model(path=os.path.join(MODELS_DIR_PATH, model_name))
     return model_name
@@ -146,12 +146,12 @@ def evaluate_double(adata: AnnData, model_name: str):
             pred_geps = df.loc[df["double"] == double]
             pred_geps = pred_geps.iloc[0, 1:].tolist()
             pred_geps = np.array([pred_geps])
-            
+
             # Get all the true GEPs with the current double perturbation.
             double = double.replace("_", "+")
             print(f"Evaluating double {i + 1}/{len(df['double'])}: {double}")
             true_geps = adata[adata.obs["condition"] == double]
-            
+
             # Limiting n
             if true_geps.n_obs>250:
                 n = 250

@@ -8,13 +8,18 @@ Train and test two versions of the linear gene expression model ("optimized" and
 python3 -m src.lgem.main
 ```
 
-## Cristina's Todos
+## ToDo
 
-[`src/gears/mmd_loss.py`](src/gears/mmd_loss.py):
-- Improve.
-- Can it only be used with batches?
-- Make similar functionality for other metrics.
+[`src/data_utils`]
+- Manage module calling from different scripts
 
-[`src/gears/train_predict_evaluate.py`](src/gears/train_predict_evaluate.py):
-- Run, understand, and improve.
-- Extend to other tools (framework?).
+[`src/gears_tools`]
+- Move loss functions outside the folder, change module calling
+
+[`src/scgpt`]
+- Solve issue with memory allocation during evaluation
+
+[`src/lgem`]
+- Merge altered model into main.py and train.py
+
+[`src/sena`]
