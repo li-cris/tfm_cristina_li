@@ -27,7 +27,7 @@ path_sypp_scgpt = "../sypp/src/scgpt"
 sys.path.insert(0, path_sypp_scgpt)
 
 # Remember to install scgpt
-# scGPT module functions
+# scGPT module
 import scgpt as scg
 from scgpt.model import TransformerGenerator
 from scgpt.loss import (
@@ -88,16 +88,16 @@ load_param_prefixs = [
 ]
 # settings for optimizer
 lr = 1e-4  # or 1e-4
-batch_size = 8 # NEED LOWER BATCH SIZE
+batch_size = 4 # NEED LOWER BATCH SIZE
 eval_batch_size = 4
 epochs = 15 # REMEMBER TO CHANGE THIS
 schedule_interval = 1
 early_stop = 10
 
 # settings for the model
-embsize = 512  # embedding dimension
-d_hid = 512  # dimension of the feedforward network model in nn.TransformerEncoder
-nlayers = 12  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+embsize = 256  # embedding dimension
+d_hid = 256  # dimension of the feedforward network model in nn.TransformerEncoder
+nlayers = 6  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
 nhead = 8  # number of heads in nn.MultiheadAttention
 n_layers_cls = 3
 dropout = 0  # dropout probability
@@ -142,6 +142,17 @@ vocab = loaded_model_configs["vocab"]
 gene_ids = loaded_model_configs["gene_ids"]
 genes = loaded_model_configs["genes"]
 n_genes = loaded_model_configs["n_genes"]
+
+
+# settings for the model (?????)
+embsize = 256  # embedding dimension
+d_hid = 256  # dimension of the feedforward network model in nn.TransformerEncoder
+nlayers = 12  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+nhead = 8  # number of heads in nn.MultiheadAttention
+n_layers_cls = 3
+dropout = 0  # dropout probability
+use_fast_transformer = True  # whether to use fast transformer
+
 
 # Create and train scGPT
 ntokens = len(vocab)  # size of vocabulary
@@ -310,6 +321,10 @@ for epoch in range(1, epochs + 1):
         best_model = copy.deepcopy(model)
         logger.info(f"Best model with score {val_score:5.4f}")
         patience = 0
+
+        # Saving model if val_score is better than previous
+        print(f"Saving best model with score {val_score:5.4f} at epoch {epoch} at {save_dir}.")
+        torch.save(best_model.state_dict(), os.path.join(save_dir, "best_model.pt"))
     else:
         patience += 1
         if patience >= early_stop:
@@ -324,6 +339,7 @@ for epoch in range(1, epochs + 1):
     scheduler.step()
 
 
-# Save model
+# Save model again after training if stopped early
 # savedir: directory where model is saved, different from dir for pretrained model
+print(f"Saving best model with score {val_score:5.4f} at {save_dir}.")
 torch.save(best_model.state_dict(), os.path.join(save_dir, "best_model.pt"))

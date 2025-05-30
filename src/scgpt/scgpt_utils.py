@@ -297,12 +297,16 @@ def eval_perturb(
     pred_de = []
     truth_de = []
     results = {}
-    logvar = []
+    # logvar = []
+
+    print("Starting evaluation...")
 
     for itr, batch in enumerate(loader):
+        if itr%100 == 0:
+            print(f"Evaluating batch {itr} / {len(loader)}")
+
         batch.to(device)
         pert_cat.extend(batch.pert)
-
         with torch.no_grad():
             p = model.pred_perturb(
                 batch,
@@ -322,13 +326,13 @@ def eval_perturb(
     results["pert_cat"] = np.array(pert_cat)
     pred = torch.stack(pred)
     truth = torch.stack(truth)
-    results["pred"] = pred.detach().cpu().numpy().astype(np.float)
-    results["truth"] = truth.detach().cpu().numpy().astype(np.float)
+    results["pred"] = pred.detach().cpu().numpy().astype(np.float64)
+    results["truth"] = truth.detach().cpu().numpy().astype(np.float64)
 
     pred_de = torch.stack(pred_de)
     truth_de = torch.stack(truth_de)
-    results["pred_de"] = pred_de.detach().cpu().numpy().astype(np.float)
-    results["truth_de"] = truth_de.detach().cpu().numpy().astype(np.float)
+    results["pred_de"] = pred_de.detach().cpu().numpy().astype(np.float64)
+    results["truth_de"] = truth_de.detach().cpu().numpy().astype(np.float64)
 
     return results
 
@@ -356,30 +360,44 @@ def predict(
     ctrl_adata = adata[adata.obs["condition"] == "ctrl"]
     if pool_size is None:
         pool_size = len(ctrl_adata.obs)
-    gene_list = pert_data.gene_names.values.tolist()
+    gene_list = pert_data.adata.var["gene_name"].values.tolist()
     for pert in pert_list:
         for i in pert:
             if i not in gene_list:
                 raise ValueError(
                     "The gene is not in the perturbation graph. Please select from GEARS.gene_list!"
                 )
-
+# TODO: add pert_flags in loader (genes that are perturbed in the list of perturbations)
+    print(len(gene_list))
     model.eval()
-    device = next(model.parameters()).device
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     with torch.no_grad():
         results_pred = {}
         for pert in pert_list:
+            print(pert)
             cell_graphs = create_cell_graph_dataset_for_prediction(
                 pert, ctrl_adata, gene_list, device, num_samples=pool_size
             )
             loader = DataLoader(cell_graphs, batch_size=eval_batch_size, shuffle=False)
             preds = []
-            for batch_data in loader:
+            for i, batch_data in enumerate(loader):
+                batch_data.to(device)
+                print(batch_data.x.shape)
+                if batch_data.x.dim() == 1:
+                    batch_data.x = batch_data.x.unsqueeze(1)
+                    pert_flags = [1 if p in gene_list else 0 for p in pert]
+                    pert_flags = torch.tensor(pert_flags, dtype=torch.long)
+                    pert_flags = pert_flags.repeat(eval_batch_size)
+                    pert_flags.to(device)
+
+                    batch_data.x = torch.cat([batch_data.x, pert_flags], dim=1)
+
                 pred_gene_values = model.pred_perturb(
                     batch_data, include_zero_gene, gene_ids=gene_ids, amp=amp
                 )
                 preds.append(pred_gene_values)
             preds = torch.cat(preds, dim=0)
-            results_pred["_".join(pert)] = np.mean(preds.detach().cpu().numpy(), axis=0)
-
+            # results_pred["_".join(pert)] = np.mean(preds.detach().cpu().numpy(), axis=0)
+            # results_pred["_".join(pert)] = preds.detach().cpu().numpy()
+            results_pred = preds.detach().cpu().numpy()
     return results_pred
