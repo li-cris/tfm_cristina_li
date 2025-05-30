@@ -134,7 +134,7 @@ model.to(device)
 # List of doubles
 
 # Random set of ctrl samples
-pool_size=20
+pool_size=200
 ctrl_adata = pert_data.adata[pert_data.adata.obs["condition"] == "ctrl"]
 np.random.seed(seed)
 random_indices = np.random.choice(
@@ -154,6 +154,7 @@ with open(file=double_results_file_path, mode="w") as f:
          file=f,
          )
 
+    print(f"Evaluating predictions with {pool_size} samples pert double perturbation...")
     mean_result_pred = {}
     for i, double in enumerate(double_perturbations):
 
@@ -164,13 +165,22 @@ with open(file=double_results_file_path, mode="w") as f:
         result_pred = predict(model=model, pert_list=pert_list, pert_data=pert_data,
                             eval_batch_size=eval_batch_size, include_zero_gene=include_zero_gene, gene_ids=gene_ids, pool_size=pool_size)
 
-        mean_result_pred["_".join(pert_list)] = np.mean(result_pred, axis=0)
+        for pert in pert_list:
+             pert_name = "_".join(str(p) for p in pert)
+
+        mean_result_pred[pert_name] = np.mean(result_pred, axis=0)
 
         # Getting some samples for the current double pert
         np.random.seed(seed)
         double_adata = pert_data.adata[pert_data.adata.obs["condition"] == double]
-        random_indices = np.random.choice(double_adata.n_obs, size=pool_size, replace=False)
-        true_geps = double_adata[random_indices, :]
+        if double_adata.n_obs < pool_size:
+            print(f"Warning: Not enough samples for {double}. Randomly selection samples from {double_adata.n_obs} samples.")
+            true_geps = double_adata.copy()
+            true_geps = true_geps[np.random.choice(double_adata.n_obs, size=pool_size, replace=True), :]
+
+        else:
+            random_indices = np.random.choice(double_adata.n_obs, size=pool_size, replace=False)
+            true_geps = double_adata[random_indices, :]
 
         # Tensorize data
         # pred_geps_tensor = torch.tensor(result_pred["_".join(pert_list)])
@@ -218,9 +228,6 @@ with open(file=double_results_file_path, mode="w") as f:
             file=f,
             )
 
-        if i > 1:
-             print("Stopping after 2 doubles for testing purposes.")
-             break
 
 print(f"Metrics saved to {double_results_file_path}.")
 # Saving predictions as another csv

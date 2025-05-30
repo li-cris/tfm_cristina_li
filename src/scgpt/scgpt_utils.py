@@ -367,14 +367,14 @@ def predict(
                 raise ValueError(
                     "The gene is not in the perturbation graph. Please select from GEARS.gene_list!"
                 )
-# TODO: add pert_flags in loader (genes that are perturbed in the list of perturbations)
-    print(len(gene_list))
+
+
     model.eval()
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
     with torch.no_grad():
         results_pred = {}
         for pert in pert_list:
-            print(pert)
             cell_graphs = create_cell_graph_dataset_for_prediction(
                 pert, ctrl_adata, gene_list, device, num_samples=pool_size
             )
@@ -382,20 +382,22 @@ def predict(
             preds = []
             for i, batch_data in enumerate(loader):
                 batch_data.to(device)
-                print(batch_data.x.shape)
                 if batch_data.x.dim() == 1:
                     batch_data.x = batch_data.x.unsqueeze(1)
-                    pert_flags = [1 if p in gene_list else 0 for p in pert]
-                    pert_flags = torch.tensor(pert_flags, dtype=torch.long)
-                    pert_flags = pert_flags.repeat(eval_batch_size)
-                    pert_flags.to(device)
 
-                    batch_data.x = torch.cat([batch_data.x, pert_flags], dim=1)
+                pert_flags = [1 if gene in pert else 0 for gene in gene_list]
+                pert_flags = torch.tensor(pert_flags, dtype=torch.long, device=device)
+                pert_flags = pert_flags.repeat(eval_batch_size)
+                pert_flags = pert_flags.unsqueeze(1)
+
+                batch_data.x = torch.cat([batch_data.x, pert_flags], dim=1)
+
 
                 pred_gene_values = model.pred_perturb(
                     batch_data, include_zero_gene, gene_ids=gene_ids, amp=amp
                 )
                 preds.append(pred_gene_values)
+
             preds = torch.cat(preds, dim=0)
             # results_pred["_".join(pert)] = np.mean(preds.detach().cpu().numpy(), axis=0)
             # results_pred["_".join(pert)] = preds.detach().cpu().numpy()
