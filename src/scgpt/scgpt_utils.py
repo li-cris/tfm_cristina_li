@@ -188,6 +188,17 @@ def train(model: TransformerGenerator, train_loader: torch.utils.data.DataLoader
 
     num_batches = len(train_loader)
     for batch, batch_data in enumerate(train_loader):
+        # A version of pertdata doesn't have pert flags
+        # if batch_data.x.dim() == 1:
+        #     batch_data.x = batch_data.x.unsqueeze(1)
+
+        #     pert_flags = [1 if gene in pert else 0 for gene in gene_list]
+        #     pert_flags = torch.tensor(pert_flags, dtype=torch.long, device=device)
+        #     pert_flags = pert_flags.repeat(eval_batch_size)
+        #     pert_flags = pert_flags.unsqueeze(1)
+
+        #     batch_data.x = torch.cat([batch_data.x, pert_flags], dim=1)
+
         batch_size = len(batch_data.y)
         batch_data.to(device)
         x: torch.Tensor = batch_data.x  # (batch_size * n_genes, 2)

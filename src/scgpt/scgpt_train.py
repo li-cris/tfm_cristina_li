@@ -54,11 +54,11 @@ RESULT_DIR_PATH = './results'
 DATA_DIR_PATH = './data'
 
 # Somo parameters and settings
-seed = 42
+seed = 46
 set_seed(seed)
 
 # dataset and evaluation choices
-dataset_name = "norman_alt" # norman_alt, others...
+dataset_name = "norman_alt" # norman_alt, norman_old_pickle...
 split = "simulation"
 
 # settings for data preprocessing
@@ -110,7 +110,7 @@ log_interval = 100
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Directory where retrained model is saved
-save_dir = os.path.join(MODEL_DIR_PATH, f"scgpt_{dataset_name}_{split}_seed_{42}")
+save_dir = os.path.join(MODEL_DIR_PATH, f"scgpt_{dataset_name}_{split}_seed_{seed}")
 os.makedirs(save_dir, exist_ok=True)
 print(f"saving to {save_dir}")
 
