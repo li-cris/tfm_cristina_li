@@ -89,7 +89,7 @@ def predict_evaluate_lgem_double(model, device, dataloader, perts_list):
             predictions.append(Y_predicted.T.cpu().numpy())
             ground_truth.append(batch_Y.cpu().numpy())
 
-            mse_loss_list.extend(mse_loss.cpu().numpy())
+            mse_loss_list.extend(mse_loss.mean(dim=1).cpu().numpy())
 
 
     double_predictions = np.concatenate(predictions, axis=0)
