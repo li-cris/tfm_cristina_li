@@ -1,4 +1,6 @@
 from typing import Dict, Tuple
+import torch
+import torch.nn as nn
 
 import git
 import numpy as np
@@ -54,3 +56,43 @@ def load_gene_pathway_mask(
         mask[gene_idx, pathway_idx] = 1
 
     return mask, gene_to_index, pathway_to_index
+
+# evaluate model
+def predict_lgem_singles(model, dataloader, device):
+    model.to(device)
+    model.eval()
+    predictions = []
+    with torch.no_grad():
+        for batch_P, _ in dataloader:  # noqa: N806
+            batch_P = batch_P.to(device)  # noqa: N806
+            Y_predicted = model(batch_P)  # noqa: N806
+            predictions.append(Y_predicted.cpu().numpy())
+
+    single_predictions = np.concatenate(predictions, axis=1)
+    return single_predictions
+
+def predict_evaluate_lgem_double(model, device, dataloader, perts_list):
+    """Predicts the double prediction output of the model based on embedding of double perturbations."""
+    model.to(device)
+    model.eval()
+    double_perts_list = [pert for pert in perts_list if "+" in pert]
+    predictions = []
+    ground_truth = [] 
+    mse_loss_list = []
+    mse_loss_fn = nn.MSELoss(reduction = "none")
+    with torch.no_grad():
+        print("Predicting and calculating loss for double perturbations.")
+        for batch_P, batch_Y in dataloader:  # noqa: N806
+            batch_P, batch_Y = batch_P.to(device), batch_Y.to(device)  # noqa: N806
+            Y_predicted = model(batch_P)  # noqa: N806
+            mse_loss = mse_loss_fn(Y_predicted.T, batch_Y)
+            predictions.append(Y_predicted.T.cpu().numpy())
+            ground_truth.append(batch_Y.cpu().numpy())
+
+            mse_loss_list.extend(mse_loss.cpu().numpy())
+
+
+    double_predictions = np.concatenate(predictions, axis=0)
+    ground_truth = np.concatenate(ground_truth, axis=0)
+
+    return double_perts_list, double_predictions, ground_truth, mse_loss_list

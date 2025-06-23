@@ -6,6 +6,7 @@ import pertdata
 import torch
 from sklearn.decomposition import PCA
 from tqdm import tqdm
+import scipy as sc
 
 from utils import get_git_root
 
@@ -77,6 +78,24 @@ def load_pseudobulk_data(
 
     return Y, perts, genes
 
+def pseudobulk_data_per_perturbation(perts: List, genes: List, pertdata_common: None) -> None:
+    """
+    Pseudobulk the data per perturbation.
+    Parameters:
+        perts (list): List of perturbations.
+        genes (list): List of genes.
+        pertdata_common (AnnData): AnnData object with common genes and perturbations.
+    """
+    n_perts = len(perts)
+    n_genes = len(genes)
+    Y = torch.zeros((n_perts, n_genes), dtype=torch.float32)  # noqa: N806
+    for i, pert in tqdm(
+        enumerate(perts), desc="Pseudobulking", total=n_perts, unit="perturbation"
+    ):
+        Y[i, :] = torch.Tensor(pertdata_common[pertdata_common.obs["condition_fixed"] == pert].X.mean(axis=0))
+
+    return Y
+
 
 def compute_embeddings(
     Y: torch.Tensor,  # noqa: N803
@@ -105,6 +124,56 @@ def compute_embeddings(
     # Extract perturbation embeddings P from G by subsetting G to only those rows
     # corresponding to genes that have been perturbed in the data.
     P = G[np.where(np.isin(genes, perts))[0], :]  # noqa: N806
+
+    # Compute b as the average expression of each gene across all perturbations.
+    b = Y.mean(axis=1)
+
+    return torch.from_numpy(G).float(), torch.from_numpy(P).float(), b
+
+
+def compute_embeddings_double(
+    Y: torch.Tensor,  # noqa: N803
+    perts: List[str], # all perturbations, single and double
+    genes: List[str],
+    d_embed: int = 10,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Compute gene and perturbation embeddings.
+
+    Args:
+        Y: Data matrix with shape (n_genes, n_perturbations).
+        perts: List of perturbations.
+        genes: List of genes.
+        d_embed: Embedding dimension.
+
+    Returns:
+        G: Gene embedding matrix with shape (n_genes, d_embed).
+        P: Perturbation embedding matrix with shape (n_perturbations, d_embed).
+        b: Bias vector with shape (n_genes).
+    """
+    # Perform a PCA on Y to obtain the top d_embed principal components, which will
+    # serve as the gene embeddings G.
+    pca = PCA(n_components=d_embed)
+    G = pca.fit_transform(Y)  # noqa: N806
+
+    gene_to_idx = {gene: i for i, gene in enumerate(genes)}
+    gene_to_emb = {gene: G[i] for gene, i in gene_to_idx.items()}
+
+    P = []
+    missing = []
+    for pert in perts:
+        genes_in_pert = pert.split("+")
+        try:
+            emb_list = [gene_to_emb[g] for g in genes_in_pert]
+            pert_emb = np.mean(emb_list, axis=0)  # average embeddings
+            P.append(pert_emb)
+        except KeyError as e:
+            missing.append(pert)
+            P.append(np.zeros(d_embed))  # fallback if gene not found
+
+    P = np.array(P)
+    if missing:
+        print(f"{len(missing)}/{len(perts)} missing embeddings.")
+        print(f"Missing embeddings for perturbations: {missing}")
 
     # Compute b as the average expression of each gene across all perturbations.
     b = Y.mean(axis=1)
