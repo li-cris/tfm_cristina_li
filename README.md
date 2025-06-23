@@ -10,16 +10,20 @@ python3 -m src.lgem.main
 
 ## ToDo
 
+- Add Dockerfiles for tools: SENA, scgpt and GEARS
+
 [`src/data_utils`]
-- Manage module calling from different scripts
+- (Loss functions moved here)
+- Add code for prediction overview when finished
 
 [`src/gears_tools`]
-- Move loss functions outside the folder, change module calling
+- Update other tools' code that uses GEARS pert_data data splitter and loader to follow the recent change.
 
-[`src/scgpt`]
-- Solve issue with memory allocation during evaluation
+[`src/scgpt_tools`]
+- Seems to work fine in low GPU workspaces if embsize is kept as half the default one and dataloader batch sizes are decreased.
 
 [`src/lgem`]
-- Merge altered model into main.py and train.py
+- Clean up and merge some scripts currently unused.
 
 [`src/sena`]
+- See how to manage problems related to using functions from SENA repo
