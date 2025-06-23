@@ -1,18 +1,12 @@
 import argparse
 import itertools
 import os
-import sys
-
-path = os.path.abspath('../sypp/src/gears_tools/')
-print(path)
-sys.path.insert(0, path)
 
 import numpy as np
 import pandas as pd
 import torch
 from anndata import AnnData
-from mmd_loss import MMDLoss
-from kld_loss import compute_kld
+from data_utils.metrics import MMDLoss, compute_kld
 from scipy.sparse import csr_matrix
 
 from gears import GEARS, PertData
@@ -23,7 +17,6 @@ RESULTS_DIR_PATH = "results"
 
 PREDICT_SINGLE = False
 PREDICT_DOUBLE = True
-# PREDICT_COMBO = False
 
 # Set to True if training only has single perturbations and double perturbations are on test.
 SINGLE_TRAIN_ONLY = True
