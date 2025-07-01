@@ -6,10 +6,15 @@ import numpy as np
 import pandas as pd
 import torch
 from anndata import AnnData
-from data_utils.metrics import MMDLoss, compute_kld
 from scipy.sparse import csr_matrix
+from scipy.stats import pearsonr
+import random
 
+# GEARS imports
 from gears import GEARS, PertData
+
+# Own imports
+from data_utils.metrics import MMDLoss, compute_kld
 
 DATA_DIR_PATH = "data"
 MODELS_DIR_PATH = "models"
@@ -18,31 +23,39 @@ RESULTS_DIR_PATH = "results"
 PREDICT_SINGLE = False
 PREDICT_DOUBLE = True
 
-# Set to True if training only has single perturbations and double perturbations are on test.
+# Set to True if training only has single perturbations (train + val) and double perturbations are on test.
 SINGLE_TRAIN_ONLY = True
 
+def set_seeds(seed: int) -> None:
+    """Set random seeds for reproducibility."""
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
 
 def train(
-    pert_data: PertData, dataset_name: str, split: str, seed: int, hidden_size: int, device: str
+    pert_data: PertData, dataset_name: str, model_savedir: str,
+    split: str, seed: int, hidden_size: int, device: str, epochs: int = 20
 ) -> str:
     """Set up, train, and save GEARS model."""
     print("Training GEARS model.")
     gears_model = GEARS(pert_data=pert_data, device=device)
     gears_model.model_initialize(hidden_size=hidden_size)
-    gears_model.train(epochs=20)
+    gears_model.train(epochs=epochs)
     model_name = (
         f"gears_{dataset_name}_split_{split}_seed_{str(seed)}_hidden_size_{str(hidden_size)}"
     )
-    gears_model.save_model(path=os.path.join(MODELS_DIR_PATH, model_name))
+    gears_model.save_model(path=os.path.join(model_savedir, model_name))
     return model_name
 
 
-def predict(pert_data: PertData, device: str, model_name: str) -> None:
+def predict(pert_data: PertData,
+            device: str, model_name: str,
+            model_savedir: str, results_savedir: str) -> None:
     """Predict with GEARS model."""
     # Load the model.
     print("Loading GEARS model.")
     gears_model = GEARS(pert_data=pert_data, device=device)
-    gears_model.load_pretrained(path=os.path.join(MODELS_DIR_PATH, model_name))
+    gears_model.load_pretrained(path=os.path.join(model_savedir, model_name))
 
     # Get all single perturbations.
     single_perturbations = set(
@@ -77,7 +90,7 @@ def predict(pert_data: PertData, device: str, model_name: str) -> None:
     if PREDICT_SINGLE:
         # Predict all single perturbations.
         single_results_file_path = os.path.join(
-            RESULTS_DIR_PATH, f"{model_name}_single.csv"
+            results_savedir, f"{model_name}_single.csv"
         )
         with open(file=single_results_file_path, mode="w") as f:
             print(f"single,{var_names_str}", file=f)
@@ -92,7 +105,7 @@ def predict(pert_data: PertData, device: str, model_name: str) -> None:
     if PREDICT_DOUBLE:
         # Predict all double perturbations.
         double_results_file_path = os.path.join(
-            RESULTS_DIR_PATH, f"{model_name}_double.csv"
+            results_savedir, f"{model_name}_double.csv"
         )
         with open(file=double_results_file_path, mode="w") as f:
             print(f"double,{var_names_str}", file=f)
@@ -104,36 +117,23 @@ def predict(pert_data: PertData, device: str, model_name: str) -> None:
                 expressions_str = ",".join(map(str, expressions))
                 print(f"{double},{expressions_str}", file=f)
 
-    # if PREDICT_COMBO:
-    #     # Predict all combo perturbations.
-    #     combo_results_file_path = os.path.join(
-    #         RESULTS_DIR_PATH, f"{model_name}_combo.csv"
-    #     )
-    #     with open(file=combo_results_file_path, mode="w") as f:
-    #         print(f"combo,{var_names_str}", file=f)
-    #         for i, c in enumerate(combo_perturbations):
-    #             print(f"Predicting combo {i + 1}/{len(combo_perturbations)}: {c}")
-    #             prediction = gears_model.predict(pert_list=[c])
-    #             combo = next(iter(prediction.keys()))
-    #             expressions = prediction[combo]
-    #             expressions_str = ",".join(map(str, expressions))
-    #             print(f"{combo},{expressions_str}", file=f)
 
-def evaluate_double(adata: AnnData, model_name: str, pool_size: int = 250) -> None:
+def evaluate_double(adata: AnnData, model_name: str, results_savedir: str,
+                    pool_size: int = 250, seed: int = 42, top_deg: int = 20) -> None:
     """Evaluate the predicted GEPs of double perturbations."""
     # Load predicted GEPs.
     df = pd.read_csv(
-        filepath_or_buffer=os.path.join(RESULTS_DIR_PATH, f"{model_name}_double.csv")
+        filepath_or_buffer=os.path.join(results_savedir, f"{model_name}_double.csv")
     )
 
     # Make results file path.
     results_file_path = os.path.join(
-        RESULTS_DIR_PATH, f"{model_name}_double_change_metrics.csv"
+        results_savedir, f"{model_name}_double_change_metrics.csv"
     )
 
     with open(file=results_file_path, mode="w") as f:
         print(
-            "double,mmd_true_vs_ctrl,mmd_true_vs_pred,mse_true_vs_ctrl,mse_true_vs_pred,kld_true_vs_ctrl,kld_true_vs_pred",
+            f"double,mmd_true_vs_ctrl,mmd_true_vs_pred,mse_true_vs_ctrl,mse_true_vs_pred,kld_true_vs_ctrl,kld_true_vs_pred,pearsonTop{top_deg}_true_vs_ctrl,pearson_pval_true_vs_ctrl,pearsonTop{top_deg}_true_vs_pred,pearson_pval_true_vs_pred",
             file=f,
         )
 
@@ -152,10 +152,12 @@ def evaluate_double(adata: AnnData, model_name: str, pool_size: int = 250) -> No
             if true_geps.n_obs>pool_size:
                 n = pool_size
                 random_indices = np.random.choice(true_geps.n_obs, size=n, replace=False)
-                true_geps = true_geps[random_indices, :]   
+                true_geps = true_geps[random_indices, :]  
             else:
                 # If less than pool size, randomly sample from all true_geps to avoid error in MMD computation
                 n = true_geps.n_obs
+
+            set_seeds(seed)
 
             # Obtaining random sample of ctrl GEP
             all_ctrl_geps = adata[adata.obs["condition"] == "ctrl"]
@@ -203,14 +205,27 @@ def evaluate_double(adata: AnnData, model_name: str, pool_size: int = 250) -> No
             kld_true_vs_ctrl = compute_kld(true_ctrl_geps_tensor, ctrl_ctrl_geps_tensor)
             kld_true_vs_pred = compute_kld(true_ctrl_geps_tensor, pred_ctrl_geps_tensor)
 
+            # Compute Pearson for top DEG
+            true_deg = true_ctrl_geps_tensor.mean(dim=0).cpu().detach().numpy()
+            ctrl_ctrl_deg = ctrl_ctrl_geps_tensor.mean(dim=0).cpu().detach().numpy()
+            pred_deg = pred_ctrl_geps_tensor.mean(dim=0).cpu().detach().numpy()
+            topdeg_idx = np.argsort(abs(true_deg))[-top_deg:]
+
+            pearson_true_vs_ctrl = pearsonr(true_deg[topdeg_idx], ctrl_ctrl_deg[topdeg_idx])
+            pearson_true_vs_pred = pearsonr(true_deg[topdeg_idx], pred_deg[topdeg_idx])
+
+
             print(f"MMD (true vs. control):   {mmd_true_vs_ctrl:10.6f}")
             print(f"MMD (true vs. predicted): {mmd_true_vs_pred:10.6f}")
             print(f"MSE (true vs. control):   {mse_true_vs_ctrl:10.6f}")
             print(f"MSE (true vs. predicted): {mse_true_vs_pred:10.6f}")
             print(f"KLD (true vs. control):   {kld_true_vs_ctrl:10.6f}")
             print(f"KLD (true vs. predicted): {kld_true_vs_pred:10.6f}")
+            print(f"Pearson Top {top_deg} DEG (true vs. control): {pearson_true_vs_ctrl.statistic:.6f} | p-value: {pearson_true_vs_ctrl.pvalue:.6f}")
+            print(f"Pearson Top {top_deg} DEG (true vs. predicted): {pearson_true_vs_pred.statistic:.6f} | p-value: {pearson_true_vs_pred.pvalue:.6f}")
+
             print(
-                f"{double},{mmd_true_vs_ctrl},{mmd_true_vs_pred},{mse_true_vs_ctrl},{mse_true_vs_pred},{kld_true_vs_ctrl},{kld_true_vs_pred}",
+                f"{double},{mmd_true_vs_ctrl},{mmd_true_vs_pred},{mse_true_vs_ctrl},{mse_true_vs_pred},{kld_true_vs_ctrl},{kld_true_vs_pred},{pearson_true_vs_ctrl.statistic},{pearson_true_vs_ctrl.pvalue},{pearson_true_vs_pred.statistic},{pearson_true_vs_pred.pvalue}",
                 file=f,
             )
 
@@ -227,13 +242,17 @@ def main():
     )
     parser.add_argument("--device", type=str, default="cuda", help="Device to use."
     )
-    parser.add_argument("--model_name", type=str, default="gearsmodel", help="Custom name for the model."
+    parser.add_argument("--project_name", type=str, default="gears", help="Custom name for the project."
     )
     parser.add_argument("--dataset_name", type=str, default="norman", help="Name of dataset in DATA_DIR_PATH."
     )
     parser.add_argument("--pool_size", type=int, default=250, help="Size of the pool for evaluation."
     )
     parser.add_argument("--num_runs", type=int, default=1, help="Number of runs to perform with different seeds."
+    )
+    parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs. Default is 20."
+    )
+    parser.add_argument("--top_deg", type=int, default=20, help="Number of Top Differentially Expressed Genes to evalaute."
     )
     args = parser.parse_args()
 
@@ -246,6 +265,12 @@ def main():
     os.makedirs(name=DATA_DIR_PATH, exist_ok=True)
     os.makedirs(name=MODELS_DIR_PATH, exist_ok=True)
     os.makedirs(name=RESULTS_DIR_PATH, exist_ok=True)
+
+    # Create directory for custom name in MODELS_DIR_PATH and RESULTS_DIR_PATH.
+    model_savedir = os.path.join(MODELS_DIR_PATH, args.project_name)
+    results_savedir = os.path.join(RESULTS_DIR_PATH, args.project_name)
+    os.makedirs(name=model_savedir, exist_ok=True)
+    os.makedirs(name=results_savedir, exist_ok=True)
 
     # Load "norman" data.
     data_name = args.dataset_name
@@ -264,7 +289,7 @@ def main():
         # Split data and get dataloaders. This is the same procedure as used for Figure 4 in
         # the GEARS paper.
         # See also: https://github.com/yhr91/GEARS_misc/blob/main/paper/Fig4_UMAP_train.py
-        # This split of train test sizes keeps singles in training and doubles in testing
+        # This split of train test sizes keeps singles in training and validation and doubles in testing
         print("Preparing data split.")
         if SINGLE_TRAIN_ONLY:
             # If training only has single perturbations, we need to set the train_gene_set_size
@@ -274,7 +299,7 @@ def main():
                 split=args.split,
                 seed=current_seed,
                 train_gene_set_size=1.0,
-                combo_seen2_train_frac=0.0,
+                combo_seen2_train_frac=0.0
             )
         else:
             pertdata.prepare_split(split=args.split, seed=current_seed)
@@ -283,20 +308,25 @@ def main():
         # Train.
         model_name = train(
             pert_data=pertdata,
-            dataset_name=args.model_name,
+            dataset_name=args.dataset_name,
+            model_savedir=model_savedir,
             split=args.split,
             seed=current_seed,
             hidden_size=args.hidden_size,
             device=args.device,
+            epochs=args.epochs
         )
 
         # Predict.
-        predict(pert_data=pertdata, device=args.device, model_name=model_name)
+        predict(pert_data=pertdata, device=args.device, model_name=model_name,
+                model_savedir=model_savedir, results_savedir=results_savedir)
 
         # Evaluate.
-        pertdata = PertData(data_path=DATA_DIR_PATH)
-        pertdata.load(data_name=data_name)
-        evaluate_double(adata=pertdata.adata, model_name=model_name, pool_size=args.pool_size)
+        pertdata = PertData(DATA_DIR_PATH)
+        pertdata.load(data_path=os.path.join(DATA_DIR_PATH, data_name))
+        evaluate_double(adata=pertdata.adata, model_name=model_name,
+                        results_savedir=results_savedir, pool_size=args.pool_size,
+                        seed=current_seed, top_deg=args.top_deg)
 
 
 if __name__ == "__main__":

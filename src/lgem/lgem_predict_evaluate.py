@@ -5,14 +5,9 @@ import pandas as pd
 import os
 import scanpy as sc
 import json
+from scipy.stats import pearsonr
 
 from typing import Dict
-
-# path = os.path.abspath('../sypp/src/')
-# print(path)
-# sys.path.insert(0, path)
-# sys.path.insert(0, os.path.abspath('../sypp/src/lgem/'))
-# sys.path.insert(0, os.path.abspath('../'))
 
 from lgem.models import (
     LinearGeneExpressionModelLearned,
@@ -97,6 +92,10 @@ def parse_args() -> argparse.Namespace:
         "--prediction_type", type=str, default="double", help="Kind of prediction to carry out in evaluation. Supported: 'double' or other."
     )
 
+    parser.add_argument(
+        "--top_deg", type=int, default=20, help="Number of Differentially Expressed Genes to evaluate."
+    )
+
     return parser.parse_args()
 
 
@@ -111,6 +110,8 @@ def main(args):
     device = prev_args.get('device', args.device)
     n_epochs=prev_args.get('epochs', args.epochs)
     batch_size=prev_args.get('batch_size', args.batch_size)
+    top_deg=prev_args.get('top_deg', args.top_deg)
+
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
     torch.manual_seed(seed)
@@ -168,13 +169,41 @@ def main(args):
         mse_control_learn = np.mean((gt - baseline_control) ** 2, axis = 1)
         print("Finalised MSE calculations.")
 
+        # Calculate Pearson correlation
+        gt_deg = gt - baseline_control
+        deg_idx = np.argsort(abs(gt_deg), axis=1)[:, -top_deg:]
+
+        # Select values along the top DEG indices for each sample
+        pred_op_selected = np.take_along_axis(double_predictions_op - baseline_control, deg_idx, axis=1)
+        pred_learn_selected = np.take_along_axis(double_predictions_learn - baseline_control, deg_idx, axis=1)
+        gt_selected = np.take_along_axis(gt_deg, deg_idx, axis=1)
+
+        pearson_op = np.array([pearsonr(pred_op_selected[i], gt_selected[i])
+                            for i in range(pred_op_selected.shape[0])
+                            ])
+        pearson_learn = np.array([pearsonr(pred_learn_selected[i], gt_selected[i])
+                            for i in range(pred_learn_selected.shape[0])
+                       ])
+
         # Save metrics to result dir
         result_df = pd.DataFrame({"double": double_perts_list_op,
-                                "mse_true_vs_control_op": mse_control_op,
-                                "mse_true_vs_control_learn": mse_control_learn,
+                                "mse_true_vs_ctrl_op": mse_control_op,
+                                "mse_true_vs_ctrl_learn": mse_control_learn,
                                 "mse_true_vs_pred_op": mse_pred_op,
-                                "mse_true_vs_pred_learn": mse_pred_learn})
+                                "mse_true_vs_pred_learn": mse_pred_learn,
+                                f"PearsonTop{top_deg}_true_vs_pred_op": pearson_op[:, 0],
+                                "Pearson_pval_true_vs_pred_op": pearson_op[:, 1],
+                                f"PearsonTop{top_deg}_true_vs_pred_learn": pearson_learn[:, 0],
+                                "Pearson_pval_true_vs_pred_learn": pearson_learn[:, 1]})
 
+        double_pred_op = pd.DataFrame(double_predictions_op, columns=pertdata_ctrl.var_names)
+        double_pred_op.insert(0, 'double', double_perts_list_op)
+        double_pred_learn = pd.DataFrame(double_predictions_learn, columns=pertdata_ctrl.var_names)
+        double_pred_learn.insert(0, 'double', double_perts_list_op)
+
+
+        double_pred_op.to_csv(os.path.join(args.eval_dir, f"{model_name}_double_predictions_op.csv"), index=False)
+        double_pred_learn.to_csv(os.path.join(args.eval_dir, f"{model_name}_double_predictions_learn.csv"), index=False)
         result_df.to_csv(os.path.join(args.eval_dir, f"{model_name}_double_metrics.csv"), index=False)
         print(f"Results saved to {os.path.join(args.eval_dir, f'{model_name}_double_metrics.csv')}")
 

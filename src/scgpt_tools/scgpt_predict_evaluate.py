@@ -22,11 +22,11 @@ from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from scgpt.utils import set_seed
 
 # own scGPT and metric functions
-from scgpt_tool.config_loader import model_config_loading
+from scgpt_tools.config_loader import model_config_loading
 from data_utils.metrics import compute_kld, MMDLoss
-from scgpt_tool.config_loader import load_pretrained
-from scgpt_tool.inference import predict, evaluate_double
-from scgpt_tool.data import load_dataset, get_gene_vocab
+from scgpt_tools.config_loader import load_pretrained
+from scgpt_tools.inference import predict, evaluate_double
+from scgpt_tools.data import load_dataset, get_gene_vocab
 
 
 # Global paths for easy changes inside script

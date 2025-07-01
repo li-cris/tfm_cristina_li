@@ -1,26 +1,74 @@
-import os
-import torch
+
 import numpy as np
-from tqdm import tqdm
+import pandas as pd
+import torch
+import random
+import os
+import scanpy as sc
+from torch.utils.data import DataLoader, TensorDataset
+from scipy.stats import pearsonr
 
 from data_utils.metrics import MMDLoss, compute_kld
-from sena.utils import find_pert_pairs
+from sena.sena_utils import find_pert_pairs
 
-def evaluate_model(model, dataloader, ptb_genes, config, results_dir_path: str, device: str, run_name: str, numint: int = 2) -> None:
-    """Evaluate the model on the dataloader perturbation by perturbation and save the results."""
 
-    # Finding unique combinations and index equivalent in whole data
-    all_pairs, pair_indices, c_shape = find_pert_pairs(dataloader=dataloader, device=device)
+def set_seeds(seed: int) -> None:
+    """Set random seeds for reproducibility."""
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
 
+
+def evaluate_double(model,
+                    dataloader,
+                    data_path,
+                    ptb_genes,
+                    config,
+                    results_dir_path: str,
+                    device: str,
+                    run_name: str,
+                    numint: int = 2) -> None:
+    """
+    W
+    """
     # Load config
+    pool_size = config.get("pool_size", 150)
     MMD_sigma = config.get("MMD_sigma", 200.0)
     kernel_num = config.get("kernel_num", 10)
-    matched_IO = config.get("matched_IO", False)
+    # matched_IO = config.get("matched_IO", False)
     temp = config.get("temp", 1000.0)
     seed = config.get("seed", 42)
-    latdim = config.get("latdim", 105)
-    model_name = config.get("name", "example")
-    batch_size = 10 # batch size for evaluation dataloader
+    # latdim = config.get("latdim", 105)
+    # model_name = config.get("name", "example")
+    batch_size = 5
+    top_deg = 20
+
+    set_seeds(seed)
+
+    # Load raw data, Norman for now
+    if os.path.exists(data_path):
+        adata = sc.read_h5ad(data_path)
+    else:
+        raise FileNotFoundError(f"Data file not found at {data_path}")
+
+
+    # Only keeps the matrix
+    ctrl_adata = adata[adata.obs["condition"] == "ctrl"].X.copy()
+    baseline_ctrl = np.mean(ctrl_adata.toarray(), axis=0)
+
+    # Load double perturbation data
+    ptb_targets = sorted(adata.obs["guide_ids"].unique().tolist())[1:]
+    double_adata = adata[
+        (adata.obs["guide_ids"].str.contains(","))
+        & (
+            adata.obs["guide_ids"].map(
+                lambda x: all([y in ptb_targets for y in x.split(",")])
+            )
+        )
+    ]
+
+    # Randomply sampling same subset of control data based on seed
+    ctrl_random = ctrl_adata[np.random.choice(ctrl_adata.shape[0], pool_size, replace=True)]
 
     print("Proceeding with evaluation of intervened pairs.")
     # Make results file path.
@@ -28,10 +76,13 @@ def evaluate_model(model, dataloader, ptb_genes, config, results_dir_path: str, 
         results_dir_path, f"{run_name}_double_metrics.csv"
         )
 
+    # Finding perturbation pairs for model and shape of c (for each dataloader)
+    all_pairs, _, c_shape = find_pert_pairs(dataloader=dataloader, device=device)
+
     # Prepare writing results to file
     with open(file=results_file_path, mode="w") as f:
             print(
-                "double,mmd_true_vs_ctrl,mmd_true_vs_pred,mse_true_vs_ctrl,mse_true_vs_pred,kld_true_vs_ctrl,kld_true_vs_pred",
+                f"double,mmd_true_vs_ctrl,mmd_true_vs_pred,mse_true_vs_ctrl,mse_true_vs_pred,kld_true_vs_ctrl,kld_true_vs_pred,PearsonTop{top_deg}_true_vs_ctrl,Pearson_pval_true_vs_ctrl,PearsonTop{top_deg}_true_vs_pred,Pearson_pval_true_vs_pred",
                 file=f,
             )
 
@@ -41,77 +92,92 @@ def evaluate_model(model, dataloader, ptb_genes, config, results_dir_path: str, 
             c_y_list, mu_list, var_list = [], [], []
             MSE_pred_true_temp, KLD_pred_true_temp, MMD_pred_true_temp = [], [], []
             MSE_ctrl_true_temp, KLD_ctrl_true_temp, MMD_ctrl_true_temp = [], [], []
-            MSE_pred_true_l, KLD_pred_true_l, MMD_pred_true_l = [], [], []
-            MSE_ctrl_true_l, KLD_ctrl_true_l, MMD_ctrl_true_l = [], [], []
+            full_preds = []
+            predictions_list = [] # initialise dataframe to save mean predictions for each double
 
             # Initialise MMD function
             mmd_loss_func = MMDLoss(fix_sigma=MMD_sigma, kernel_num=kernel_num)
 
             for num, unique_pairs in enumerate(all_pairs):
-                all_indices = set(np.where(pair_indices == num)[0])
                 gene_pair = "+".join([ptb_genes[unique_pairs[0]], ptb_genes[unique_pairs[1]]])
-                print(" ")
-                print("Evaluating for intervention pair {}/{}: {}".format(num+1, len(all_pairs), gene_pair))
+                print(f"Evaluating for intervention pair {num+1}/{len(all_pairs)}: {gene_pair}")
 
-                c1 = torch.zeros_like(c_shape).to(device)
-                c1[:, unique_pairs[0]] = 1
-                c2 = torch.zeros_like(c_shape).to(device)
-                c2[:, unique_pairs[1]] = 1
+                # Turning control samples into tensor
+                ctrl_geps_tensor = torch.tensor(ctrl_random.toarray()).double()
+                # ctrl_geps_tensor = torch.tensor(ctrl_random.toarray())
 
-                # Iterate through dataloader to find desired indices
-                for i, X in enumerate(dataloader):
-                    if i in all_indices:
-                        x, y = X[0].to(device), X[1]
+                # Get equivalent double adata or random sample
+                unique_pairs_set = set([ptb_genes[unique_pairs[0]], ptb_genes[unique_pairs[1]]])
+                double_samples = double_adata[double_adata.obs["guide_ids"].map(
+                     lambda x: all([y in unique_pairs_set for y in x.split(",")])
+                )]
 
-                        if len(c1) > len(x):
-                            c1 = c1[:len(x), :]
-                            c2 = c2[:len(x), :] 
+                if double_samples.n_obs == 0:
+                    print(f"0 samples found for {gene_pair}. Taking random samples from whole adata.")
+                    true_geps = adata.copy()
+                    random_indices = np.random.choice(
+                        adata.n_obs, size=pool_size, replace=True
+                        )
+                    true_geps = true_geps[random_indices, :]
 
-                        with torch.no_grad():
-                            y_hat, x_recon, z_mu, z_var, G, _ = model(
-                                x, c1, c2, num_interv=numint, temp=temp)
+                elif double_samples.n_obs < pool_size:
+                    print(f"Warning: Not enough samples for {gene_pair}. Randomly selecting samples from {double_samples.n_obs} samples.")
+                    true_geps = double_samples.copy()
+                    true_geps = true_geps[np.random.choice(double_samples.n_obs, size=pool_size, replace=True), :]
 
-                        gt_x_list.append(x.cpu())
-                        pred_x_list.append(x_recon.cpu())
+                else:
+                    random_indices = np.random.choice(double_samples.n_obs, size=pool_size, replace=False)
+                    true_geps = double_samples[random_indices, :]
 
-                        gt_y_list.append(y)
-                        pred_y_list.append(y_hat.cpu())
+                # Turning true samples from predictions into tensor
+                baseline_true = np.mean(true_geps.X.toarray(), axis=0)
+                true_geps_tensor = torch.tensor(true_geps.X.toarray()).double()
 
-                        c_y_list.append(c_shape.cpu())
-                        mu_list.append(z_mu.cpu())
-                        var_list.append(z_var.cpu())
+                # Saving both in same Tensor Dataset
+                ctrl_double_dataset = TensorDataset(ctrl_geps_tensor, true_geps_tensor)
+                ctrl_double_loader = DataLoader(ctrl_double_dataset, batch_size=32, shuffle=False)
+
+                for i, (x, y) in enumerate(ctrl_double_loader):
+                    x = x.to(device)
+                    y = y.to(device)
+
+                    c_shape_loader = c_shape[0, :].repeat(32*batch_size, 1)
+                    c1 = torch.zeros_like(c_shape_loader).double().to(device)
+                    c1[:, unique_pairs[0]] = 1
+                    c2 = torch.zeros_like(c_shape_loader).double().to(device)
+                    c2[:, unique_pairs[1]] = 1
+
+                    if len(x) < len(c1):
+                        c1 = c1[:len(x), :]
+                        c2 = c2[:len(x), :]
+
+                    with torch.no_grad():
+                        y_hat, x_recon, z_mu, z_var, _, _ = model(
+                            x, c1, c2, num_interv=numint, temp=temp)
+
+                    gt_x_list.append(x.cpu())
+                    pred_x_list.append(x_recon.cpu())
+
+                    gt_y_list.append(y.cpu())
+                    pred_y_list.append(y_hat.cpu())
+                    full_preds.append(y_hat.cpu())
+
+                    c_y_list.append(c_shape.cpu())
+                    mu_list.append(z_mu.cpu())
+                    var_list.append(z_var.cpu())
+
 
                     # Limit stacked tensors while iterating through desired indices
                     if len(gt_x_list) >= batch_size:
-                        gt_x = torch.vstack(gt_x_list)
-                        pred_x = torch.vstack(pred_x_list)
-                        gt_y = torch.vstack(gt_y_list)
-                        pred_y = torch.vstack(pred_y_list)
-                        c_y = torch.vstack(c_y_list)
-                        mu = torch.vstack(mu_list)
-                        var = torch.vstack(var_list)
 
-                        # Compute MSE
-                        MSE_pred_true = torch.mean((gt_y - pred_y)**2)
-                        MSE_ctrl_true = torch.mean((gt_y - gt_x)**2)
-
-                        # Compute MMD
-                        MMD_pred_true = mmd_loss_func(gt_y, pred_y)
-                        MMD_ctrl_true = mmd_loss_func(gt_y, gt_x)
-
-                        # Compute KLD
-                        KLD_pred_true = compute_kld(gt_y, pred_y)
-                        KLD_ctrl_true = compute_kld(gt_y, gt_x)
-
-                        # Save temporal calculations
-                        MSE_pred_true_temp.append(MSE_pred_true.item())
-                        MSE_ctrl_true_temp.append(MSE_ctrl_true.item())
-
-                        MMD_pred_true_temp.append(MMD_pred_true.item())
-                        MMD_ctrl_true_temp.append(MMD_ctrl_true.item())
-
-                        KLD_pred_true_temp.append(KLD_pred_true.item())
-                        KLD_ctrl_true_temp.append(KLD_ctrl_true.item())
+                        (gt_x_list, pred_x_list, gt_y_list,
+                        pred_y_list, c_y_list, mu_list, var_list,
+                        MSE_pred_true_temp, KLD_pred_true_temp, MMD_pred_true_temp,
+                        MSE_ctrl_true_temp, KLD_ctrl_true_temp, MMD_ctrl_true_temp) = compute_metrics(gt_x_list, pred_x_list, gt_y_list,
+                                                                                                    pred_y_list, c_y_list, mu_list, var_list,
+                                                                                                    MSE_pred_true_temp, KLD_pred_true_temp, MMD_pred_true_temp,
+                                                                                                    MSE_ctrl_true_temp, KLD_ctrl_true_temp, MMD_ctrl_true_temp,
+                                                                                                    mmd_loss_func)
 
                         # Reset lists
                         pred_x_list, gt_x_list = [], []
@@ -120,61 +186,47 @@ def evaluate_model(model, dataloader, ptb_genes, config, results_dir_path: str, 
 
                 # Once iterated through all indices, check rest of stacked tensors
                 if len(gt_x_list) > 0:
-                    # Stack tensors
-                    gt_x = torch.vstack(gt_x_list)
-                    pred_x = torch.vstack(pred_x_list)
-                    gt_y = torch.vstack(gt_y_list)
-                    pred_y = torch.vstack(pred_y_list)
-                    c_y = torch.vstack(c_y_list)
-                    mu = torch.vstack(mu_list)
-                    var = torch.vstack(var_list)
 
-                    # Compute MSE
-                    MSE_pred_true = torch.mean((gt_y - pred_y)**2)
-                    MSE_ctrl_true = torch.mean((gt_y - gt_x)**2)
+                    (gt_x_list, pred_x_list, gt_y_list,
+                    pred_y_list, c_y_list, mu_list, var_list,
+                    MSE_pred_true_temp, KLD_pred_true_temp, MMD_pred_true_temp,
+                    MSE_ctrl_true_temp, KLD_ctrl_true_temp, MMD_ctrl_true_temp) = compute_metrics(gt_x_list, pred_x_list, gt_y_list,
+                                                                                                pred_y_list, c_y_list, mu_list, var_list,
+                                                                                                MSE_pred_true_temp, KLD_pred_true_temp, MMD_pred_true_temp,
+                                                                                                MSE_ctrl_true_temp, KLD_ctrl_true_temp, MMD_ctrl_true_temp,
+                                                                                                mmd_loss_func)
 
-                    # Compute MMD
-                    MMD_pred_true = mmd_loss_func(gt_y, pred_y)
-                    MMD_ctrl_true = mmd_loss_func(gt_y, gt_x)
-
-                    # Compute KLD
-                    KLD_pred_true = compute_kld(gt_y, pred_y)
-                    KLD_ctrl_true = compute_kld(gt_y, gt_x)
-
-                    # Save temporal calculations
-                    MSE_pred_true_temp.append(MSE_pred_true.item())
-                    MSE_ctrl_true_temp.append(MSE_ctrl_true.item())
-
-                    MMD_pred_true_temp.append(MMD_pred_true.item())
-                    MMD_ctrl_true_temp.append(MMD_ctrl_true.item())
-
-                    KLD_pred_true_temp.append(KLD_pred_true.item())
-                    KLD_ctrl_true_temp.append(KLD_ctrl_true.item())
 
                 # After each unique pair, print and save metrics
-                print("MSE prediction vs true: {:.4f}".format(np.mean(MSE_pred_true_temp)))
-                print("MSE control vs true: {:.4f}".format(np.mean(MSE_ctrl_true_temp)))
-                print("MMD prediction vs true: {:.4f}".format(np.mean(MMD_pred_true_temp)))
-                print("MMD control vs true: {:.4f}".format(np.mean(MMD_ctrl_true_temp)))
-                print("KLD prediction vs true: {:.4f}".format(np.mean(KLD_pred_true_temp)))
-                print("KLD control vs true: {:.4f}".format(np.mean(KLD_ctrl_true_temp)))
+                print(f"MMD (true vs. control):     {np.mean(MMD_ctrl_true_temp):.6f}")
+                print(f"MMD (true vs. predicted):   {np.mean(MMD_pred_true_temp):.6f}")
+                print(f"MSE (true vs. control):     {np.mean(MSE_ctrl_true_temp):.6f}")
+                print(f"MSE (true vs. predicted):   {np.mean(MSE_pred_true_temp):.6f}")
+                print(f"KLD (true vs. control):     {np.mean(KLD_ctrl_true_temp):.6f}")
+                print(f"KLD (true vs. predicted):   {np.mean(KLD_pred_true_temp):.6f}")
 
-                # Save MSE
-                MSE_pred_true_l.append(np.mean(MSE_pred_true_temp))
-                MSE_ctrl_true_l.append(np.mean(MSE_ctrl_true_temp))
+                # Calculating Pearson with mean GEPs
+                mean_pred = torch.vstack(full_preds).mean(dim=0).cpu()
+                true_deg = baseline_true-baseline_ctrl
+                pred_deg = mean_pred.numpy()-baseline_ctrl
+                ctrl_ctrl_deg = baseline_ctrl-baseline_ctrl
+                deg_idx = np.argsort(abs(true_deg))[-top_deg:] # DEG from true pert value
 
-                # Save MMD
-                MMD_pred_true_l.append(np.mean(MMD_pred_true_temp))
-                MMD_ctrl_true_l.append(np.mean(MMD_ctrl_true_temp))
+                pred_true_pearson_stat,  pred_true_pearson_pval = pearsonr(true_deg[deg_idx], pred_deg[deg_idx])
+                ctrl_true_pearson_stat,  ctrl_true_pearson_pval = pearsonr(true_deg[deg_idx], ctrl_ctrl_deg[deg_idx])
 
-                # Save KLD
-                KLD_pred_true_l.append(np.mean(KLD_pred_true_temp))
-                KLD_ctrl_true_l.append(np.mean(KLD_ctrl_true_temp))
+                print(f"Pearson Top {top_deg} DEG (true vs. control): {ctrl_true_pearson_stat:.6f} | p-value: {ctrl_true_pearson_pval:.6f}")
+                print(f"Pearson Top {top_deg} DEG (true vs. predicted): {pred_true_pearson_stat:.6f} | p-value: {pred_true_pearson_pval:.6f}")
 
                 # Save results to file
-                print(f"{gene_pair},{np.mean(MMD_ctrl_true_temp)},{np.mean(MMD_pred_true_temp)},{np.mean(MSE_ctrl_true_temp)},{np.mean(MSE_pred_true_temp)},{np.mean(KLD_ctrl_true_temp)},{np.mean(KLD_pred_true_temp)}",
+                print(f"{gene_pair},{np.mean(MMD_ctrl_true_temp)},{np.mean(MMD_pred_true_temp)},{np.mean(MSE_ctrl_true_temp)},{np.mean(MSE_pred_true_temp)},{np.mean(KLD_ctrl_true_temp)},{np.mean(KLD_pred_true_temp)},{ctrl_true_pearson_stat},{ctrl_true_pearson_pval},{pred_true_pearson_stat},{pred_true_pearson_pval}",
                     file=f,
                 )
+
+                # Saving and updating predictions
+                prediction_row = [gene_pair] + mean_pred.tolist()
+                predictions_list.append(prediction_row)
+
 
                 # Reset lists
                 pred_x_list, gt_x_list = [], []
@@ -182,3 +234,59 @@ def evaluate_model(model, dataloader, ptb_genes, config, results_dir_path: str, 
                 c_y_list, mu_list, var_list = [], [], []
                 MSE_pred_true_temp, KLD_pred_true_temp, MMD_pred_true_temp = [], [], []
                 MSE_ctrl_true_temp, KLD_ctrl_true_temp, MMD_ctrl_true_temp = [], [], []
+
+
+            # Save prediction data
+            prediction_colnames = ['double'] + adata.var_names.tolist()
+            prediction_df = pd.DataFrame(predictions_list, columns=prediction_colnames)
+            prediction_file_path = os.path.join(results_dir_path, f"{run_name}_double_prediction.csv")
+            prediction_df.to_csv(prediction_file_path)
+            print(f"Saved predictions at {prediction_file_path}")
+
+
+
+# Still need to save predictions somewhere (forgot)
+
+def compute_metrics(gt_x_list, pred_x_list, gt_y_list,
+                    pred_y_list, c_y_list, mu_list, var_list,
+                    MSE_pred_true_temp, KLD_pred_true_temp, MMD_pred_true_temp,
+                    MSE_ctrl_true_temp, KLD_ctrl_true_temp, MMD_ctrl_true_temp,
+                    mmd_loss_func):
+    """
+    asdf
+    """
+    gt_x = torch.vstack(gt_x_list)
+    pred_x = torch.vstack(pred_x_list)
+    gt_y = torch.vstack(gt_y_list)
+    pred_y = torch.vstack(pred_y_list)
+    c_y = torch.vstack(c_y_list)
+    mu = torch.vstack(mu_list)
+    var = torch.vstack(var_list)
+
+    # Compute MSE
+    MSE_pred_true = torch.mean((gt_y - pred_y)**2)
+    MSE_ctrl_true = torch.mean((gt_y - gt_x)**2)
+
+    # Compute MMD
+    MMD_pred_true = mmd_loss_func(gt_y, pred_y)
+    MMD_ctrl_true = mmd_loss_func(gt_y, gt_x)
+
+    # Compute KLD
+    KLD_pred_true = compute_kld(gt_y, pred_y)
+    KLD_ctrl_true = compute_kld(gt_y, gt_x)
+
+
+    # Save temporal calculations
+    MSE_pred_true_temp.append(MSE_pred_true.item())
+    MSE_ctrl_true_temp.append(MSE_ctrl_true.item())
+
+    MMD_pred_true_temp.append(MMD_pred_true.item())
+    MMD_ctrl_true_temp.append(MMD_ctrl_true.item())
+
+    KLD_pred_true_temp.append(KLD_pred_true.item())
+    KLD_ctrl_true_temp.append(KLD_ctrl_true.item())
+
+    return (gt_x_list, pred_x_list, gt_y_list,
+            pred_y_list, c_y_list, mu_list, var_list,
+            MSE_pred_true_temp, KLD_pred_true_temp, MMD_pred_true_temp,
+            MSE_ctrl_true_temp, KLD_ctrl_true_temp, MMD_ctrl_true_temp)

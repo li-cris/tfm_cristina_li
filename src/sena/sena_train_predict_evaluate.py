@@ -11,15 +11,15 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Optional, List
 
 
-path = os.path.abspath('../SENA/src/sena_discrepancy_vae')
-sys.path.insert(0, path)
-#path2 = os.path.abspath('../sypp/src/')
-#sys.path.insert(0, path2)
-
+# SENA repo imports
+# Found in ../SENA/src
 from utils import Norman2019DataLoader # review Acuerdate de añadir utils a la carpeta de sena
 from train import train
-from sena.utils import check_and_load
-from sena.inference import evaluate_model
+
+# Own sena-related imports
+# Importable from pip install -e ../sypp
+from sena.sena_utils import check_and_load_paths
+from sena.inference import evaluate_double
 
 
 # Set up logging
@@ -36,6 +36,7 @@ logging.basicConfig(
 @dataclass
 class Options:
     name: str = "norman_example" # args
+    model: str = "sena"
     dataset_name: str = "Norman2019_reduced" # args
     batch_size: int = 32
     sena_lambda: float = 0 # args
@@ -58,6 +59,7 @@ class Options:
     mlflow_port: int = 5678
     sena_eval_mode: List[str] = field(default_factory=lambda: ["double"]) # args
     numint: int = 2
+    pool_size: int = 150
 
 
 def parse_args() -> argparse.Namespace:
@@ -82,6 +84,10 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--device", type=str, default="cuda", help="Device to run the training."
+    )
+
+    parser.add_argument(
+        "--model", type=str, default="sena", help="Model to use for training."
     )
 
     # Name given to the current project
@@ -120,6 +126,9 @@ def parse_args() -> argparse.Namespace:
     # Number of interventions for SENA evaluation
     parser.add_argument(
         "--numint", type=int, default=2, help="Number of interventions for SENA evaluation.")
+
+    parser.add_argument(
+        "--pool_size", type=int, default=150, help="Control sample pool size for evaluation.")
 
     return parser.parse_args()
 
@@ -161,7 +170,8 @@ def main(args: argparse.Namespace) -> None:
         dataset_name=args.dataset,
         log=args.log,
         sena_eval_mode=args.sena_eval_mode,
-        numint=args.numint
+        numint=args.numint,
+        pool_size=args.pool_size
     )
 
     logging.info(f"Configuration: {opts}")
@@ -241,7 +251,7 @@ def main(args: argparse.Namespace) -> None:
         logging.info(f"Model and data saved in {savedir}.")
 
         # Loading required data from .pkl files for evaluation
-        (dataloader, model, ptb_genes, config) = check_and_load(model_path=model_path, 
+        (dataloader, model, ptb_genes, config) = check_and_load_paths(model_path=model_path, 
                     data_path=data_path,
                     ptb_path=ptb_path,
                     config_path=config_path,
@@ -252,10 +262,14 @@ def main(args: argparse.Namespace) -> None:
         model = model.to(device)
         model.eval()
 
+        # Given that it is still in SENA folder
+        raw_data_path = os.path.join('../SENA/data',f"{opts.dataset_name}.h5ad")
+
         # Current model evaluation and saving metrics to the directory as CSV
-        evaluate_model(
+        evaluate_double(
             model=model,
             dataloader=dataloader,
+            data_path=raw_data_path,
             config=config,
             ptb_genes=ptb_genes,
             results_dir_path=args.eval_dir,
@@ -263,6 +277,8 @@ def main(args: argparse.Namespace) -> None:
             device=device,
             numint=opts.numint
         )
+
+        print("Process end.")
 
 
 if __name__ == "__main__":

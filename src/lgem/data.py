@@ -8,7 +8,7 @@ from sklearn.decomposition import PCA
 from tqdm import tqdm
 import scipy as sc
 
-from utils import get_git_root
+from lgem.utils import get_git_root
 
 
 def load_pseudobulk_data(

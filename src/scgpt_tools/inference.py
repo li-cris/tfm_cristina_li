@@ -30,15 +30,12 @@ def predict(
         pool_size (:obj:`int`, optional): For each perturbation, use this number
             of cells in the control and predict their perturbation results. Report
             the stats of these predictions. If `None`, use all control cells.
-
-    Returns:
-        results_pred (:obj:`Dict`): A dictionary containing the predicted gene expression values
     """
     adata = pert_data.adata
     ctrl_adata = adata[adata.obs["condition"] == "ctrl"]
     if pool_size is None:
         pool_size = len(ctrl_adata.obs)
-    gene_list = pert_data.gene_names.values.tolist()
+    gene_list = pert_data.adata.var["gene_name"].values.tolist()
     for pert in pert_list:
         for i in pert:
             if i not in gene_list:
@@ -46,8 +43,10 @@ def predict(
                     "The gene is not in the perturbation graph. Please select from GEARS.gene_list!"
                 )
 
+
     model.eval()
-    device = next(model.parameters()).device
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
     with torch.no_grad():
         results_pred = {}
         for pert in pert_list:
@@ -56,11 +55,25 @@ def predict(
             )
             loader = DataLoader(cell_graphs, batch_size=eval_batch_size, shuffle=False)
             preds = []
-            for batch_data in loader:
+            for i, batch_data in enumerate(loader):
+                batch_data.to(device)
+                # create_cell_graph_dataset_for_prediction seems to return graph without pert flags
+                if batch_data.x.dim() == 1:
+                    batch_data.x = batch_data.x.unsqueeze(1) # (num_genes*eval_batch_size, 1)
+
+                pert_flags = [1 if gene in pert else 0 for gene in gene_list] # dim: (num_genes, )
+                pert_flags = torch.tensor(pert_flags, dtype=torch.long, device=device)
+                pert_flags = pert_flags.repeat(eval_batch_size) # (num_genes * eval_batch_size, )
+                pert_flags = pert_flags.unsqueeze(1) # (num_genes * eval_batch_size, 1)
+
+                batch_data.x = torch.cat([batch_data.x, pert_flags], dim=1) # (num_genes*eval_batch_size, 2))
+
+
                 pred_gene_values = model.pred_perturb(
                     batch_data, include_zero_gene, gene_ids=gene_ids, amp=amp
                 )
                 preds.append(pred_gene_values)
+
             preds = torch.cat(preds, dim=0)
             # results_pred["_".join(pert)] = np.mean(preds.detach().cpu().numpy(), axis=0)
             # results_pred["_".join(pert)] = preds.detach().cpu().numpy()

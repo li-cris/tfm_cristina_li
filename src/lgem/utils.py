@@ -71,6 +71,7 @@ def predict_lgem_singles(model, dataloader, device):
     single_predictions = np.concatenate(predictions, axis=1)
     return single_predictions
 
+
 def predict_evaluate_lgem_double(model, device, dataloader, perts_list):
     """Predicts the double prediction output of the model based on embedding of double perturbations."""
     model.to(device)
