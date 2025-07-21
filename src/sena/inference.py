@@ -38,10 +38,10 @@ def evaluate_double(model,
     # matched_IO = config.get("matched_IO", False)
     temp = config.get("temp", 1000.0)
     seed = config.get("seed", 42)
+    top_deg = config.get("top_deg", 100)
     # latdim = config.get("latdim", 105)
     # model_name = config.get("name", "example")
     batch_size = 5
-    top_deg = 20
 
     set_seeds(seed)
 

@@ -60,6 +60,7 @@ class Options:
     sena_eval_mode: List[str] = field(default_factory=lambda: ["double"]) # args
     numint: int = 2
     pool_size: int = 150
+    top_deg: int = 100
 
 
 def parse_args() -> argparse.Namespace:
@@ -129,6 +130,10 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--pool_size", type=int, default=150, help="Control sample pool size for evaluation.")
+    
+    parser.add_argument(
+        "--top_deg", type=int, default=100, help="Number of top differentially expressed genes to evaluate."
+    )
 
     return parser.parse_args()
 
@@ -171,7 +176,8 @@ def main(args: argparse.Namespace) -> None:
         log=args.log,
         sena_eval_mode=args.sena_eval_mode,
         numint=args.numint,
-        pool_size=args.pool_size
+        pool_size=args.pool_size,
+        top_deg=args.top_deg
     )
 
     logging.info(f"Configuration: {opts}")
@@ -180,7 +186,7 @@ def main(args: argparse.Namespace) -> None:
 
         # Set up current seed for specific run and name for current run
         current_seed = opts.seed + current_run
-        run_name = f"{opts.name}_seed_{current_seed}"
+        run_name = f"{opts.name}_seed_{current_seed}_latdim_{opts.latdim}"
         set_seeds(current_seed)
 
         # Update directory for each run
