@@ -4,7 +4,7 @@ from torch_geometric.loader import DataLoader
 
 from typing import Dict, List, Optional
 
-from scgpt_tool.model import TransformerGenerator
+from scgpt.model import TransformerGenerator
 
 from scgpt.utils import map_raw_id_to_vocab_id, compute_perturbation_metrics
 

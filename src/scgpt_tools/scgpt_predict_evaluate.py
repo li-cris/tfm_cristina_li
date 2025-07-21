@@ -15,8 +15,8 @@ import torch
 from gears import PertData
 
 # scGPT module functions
-import scgpt_tool as scg
-from scgpt_tool.model import TransformerGenerator
+import scgpt as scg
+from scgpt.model import TransformerGenerator
 
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from scgpt.utils import set_seed
@@ -35,6 +35,7 @@ PREDICT_DOUBLE = True
 MODEL_DIR_PATH = './models'
 RESULT_DIR_PATH = './results'
 DATA_DIR_PATH = './data'
+SINGLE_DATA_ONLY = True
 
 @dataclass
 class Options:
@@ -47,13 +48,20 @@ class Options:
     eval_batch_size: int = 4
     epochs: int = 15
     pool_size: int = 200  # Random set of control samples to use
+    top_deg: int = 100
 
     # Other parameters that are more likely to be changed
     device: torch.device = field(default=None) # Will be set later unless want to set it here
     pretrained_model: bool = True # For now this only works with pretrained True
 
     pad_token: str = "<pad>"
-    special_tokens: List = [pad_token, "<cls>", "<eoc>"]
+    special_tokens: List[str] = field(default_factory=list)
+
+    def __post_init__(self):
+        # Populate special_tokens after object initialization
+        if not self.special_tokens:  # If the list is empty
+            self.special_tokens = [self.pad_token, "<cls>", "<eoc>"]
+
     pad_value: int = 0  # for padding values
     pert_pad_id: int = 0
     include_zero_gene: str = "all"
@@ -148,10 +156,40 @@ def parse_args():
     parser.add_argument('--pool_size', type=int,
                         default=200,
                         help='Random set of control samples to use.')
+
+    parser.add_argument('--top_deg', type=int, default=100,
+                        help="Number of top differentially expressed genes to evaluate.")
     
 
     # Parse all arguments (command line overrides JSON/defaults)
     return parser.parse_args(remaining_args)
+
+def clear_track_cache():
+    """
+    Clear cache for low GPU workspaces. Might not be necessary but it is useful to avoid memory issues.
+    This function is called before training and validation.
+    """
+    if not torch.cuda.is_available():
+        print("CUDA is not available on this system.")
+        return
+
+    torch.cuda.empty_cache()
+    torch.cuda.reset_peak_memory_stats()
+
+    # Optional checking of allocated memory
+    # Total memory and allocated memory on the GPU
+    total_memory = torch.cuda.get_device_properties(0).total_memory  # Total memory of the GPU
+    allocated_memory = torch.cuda.memory_allocated(0)  # Memory currently allocated
+    reserved_memory = torch.cuda.memory_reserved(0)  # Memory reserved by PyTorch
+
+    # Free memory (total memory - allocated memory)
+    free_memory = total_memory - allocated_memory
+
+    # Should return this printed
+    print(f"Total memory: {total_memory / 1e9:.2f} GB")
+    print(f"Allocated memory: {allocated_memory / 1e9:.2f} GB")
+    print(f"Reserved memory: {reserved_memory / 1e9:.2f} GB")
+    print(f"Free memory: {free_memory / 1e9:.2f} GB")
 
 
 def load_model(opts: Options,
@@ -210,6 +248,8 @@ def load_model(opts: Options,
 
 def main(args):
 
+    clear_track_cache()
+
     opts = Options(
         dataset_name=args.dataset_name,
         split=args.split,
@@ -218,7 +258,8 @@ def main(args):
         batch_size=args.batch_size,
         eval_batch_size=args.eval_batch_size,
         epochs=args.epochs,
-        pool_size=args.pool_size
+        pool_size=args.pool_size,
+        top_deg=args.top_deg
     )
 
     for current_seed in opts.seed:
@@ -247,11 +288,13 @@ def main(args):
 
 
         # Load data and model
-        pert_data = load_dataset(opts, DATA_DIR_PATH)
+        pert_data = load_dataset(opts, DATA_DIR_PATH, SINGLE_DATA_ONLY)
         gene_ids, vocab = get_gene_vocab(pert_data, opts, FOUNDATION_MODEL_PATH)
         model = load_model(opts, vocab, loaded_model_path, logger)
         model.to(device)
-        
+    
+        clear_track_cache()
+
         # Get control samples
         pool_size = opts.pool_size
         ctrl_adata = pert_data.adata[pert_data.adata.obs["condition"] == "ctrl"]
@@ -281,6 +324,8 @@ def main(args):
             prediction_file_path = os.path.join(result_savedir, f"{loaded_model_name}_double.csv")
             predictions_df.to_csv(prediction_file_path, index=False)
             print(f"Mean predictions saved to {prediction_file_path}.")
+
+            clear_track_cache()
 
         else:
             print("Evaluation is currently only set for double perturbations. Stopping evaluation.")

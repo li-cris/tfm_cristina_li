@@ -17,8 +17,8 @@ from gears import PertData
 #from gears.utils import create_cell_graph_dataset_for_prediction
 
 # scGPT module functions
-import scgpt_tool as scg
-from scgpt_tool.model import TransformerGenerator
+import scgpt as scg
+from scgpt.model import TransformerGenerator
 from scgpt.loss import (
     masked_mse_loss,
     criterion_neg_log_bernoulli,
@@ -29,9 +29,9 @@ from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from scgpt.utils import set_seed, compute_perturbation_metrics
 
 # own scGPT functions
-from scgpt_tool.config_loader import model_config_loading, load_pretrained
-from scgpt_tool.model import train, eval_perturb, validate_perturbation_model
-from scgpt_tool.data import load_dataset
+from scgpt_tools.config_loader import model_config_loading, load_pretrained
+from scgpt_tools.model import train, eval_perturb, validate_perturbation_model
+from scgpt_tools.data import load_dataset
 
 # Set up directories
 FOUNDATION_MODEL_PATH  = './models/scGPT_human'
@@ -39,6 +39,7 @@ PREDICT_DOUBLE = True
 MODEL_DIR_PATH = './models'
 RESULT_DIR_PATH = './results'
 DATA_DIR_PATH = './data'
+SINGLE_DATA_ONLY = True
 
 @dataclass
 class Options:
@@ -54,6 +55,7 @@ class Options:
     batch_size: int = 4 # Recommended was 32 but not enought GPU
     eval_batch_size: int = 4
     epochs: int = 15
+    num_runs: int = 1
 
     # Other parameters that are more likely to be changed
     device: torch.device = field(default=None) # Will be set later unless want to set it here
@@ -64,13 +66,20 @@ class Options:
     early_stop: int = 10
 
     # Model parameters
-    load_param_prefixs: List[str] = [
+    load_param_prefixs: List[str] = field(default_factory=lambda: [
         "encoder",
         "value_encoder",
         "transformer_encoder",
-    ]
+    ])
+
     pad_token: str = "<pad>"
-    special_tokens: List = [pad_token, "<cls>", "<eoc>"]
+    special_tokens: List[str] = field(default_factory=list)
+
+    def __post_init__(self):
+        # Populate special_tokens after object initialization
+        if not self.special_tokens:  # If the list is empty
+            self.special_tokens = [self.pad_token, "<cls>", "<eoc>"]
+
     pad_value: int = 0  # for padding values
     pert_pad_id: int = 0
     include_zero_gene: str = "all"
@@ -373,7 +382,7 @@ def train_perturbation_model(
 
         # Evaluate model on validation set
         val_metrics = validate_perturbation_model(
-            opts, gene_ids, model, pert_data, valid_loader, device, logger
+            opts, gene_ids, model, pert_data, valid_loader, device
         ) 
         logger.info(f"val_metrics at epoch {epoch}: ")
         logger.info(val_metrics)
@@ -419,16 +428,20 @@ def main(args: argparse.Namespace) -> None:
         lr=args.learning_rate,
         batch_size=args.batch_size,
         eval_batch_size=args.eval_batch_size,
-        epochs=args.epochs
+        epochs=args.epochs,
+        num_runs=args.num_runs
     )
 
+
+    scgpt_savedir = os.path.join(MODEL_DIR_PATH, "scgpt")
     print(f"Training scGPT model {opts.num_runs} times with different seeds.")
     for current_seed in range(opts.seed, opts.seed + opts.num_runs):
         print(f"Running training with seed {current_seed}")
 
         # Checking and creating some directories
         # Directory where retrained model is saved
-        save_dir = os.path.join(MODEL_DIR_PATH, f"scgpt_{opts.dataset_name}_{opts.split}_seed_{current_seed}")
+
+        save_dir = os.path.join(scgpt_savedir, f"scgpt_{opts.dataset_name}_{opts.split}_seed_{current_seed}")
         os.makedirs(save_dir, exist_ok=True)
         print(f"saving to {save_dir}")
 
@@ -436,7 +449,7 @@ def main(args: argparse.Namespace) -> None:
         scg.utils.add_file_handler(logger, os.path.join(save_dir, "run.log"))
         # log running date and current git commit
         logger.info(f"Running on {time.strftime('%Y-%m-%d %H:%M:%S')}")
-        logger.info(f"Condigurations: {opts}")
+        logger.info(f"Configurations: {opts}")
 
         # Random seed
         set_seed(current_seed)
@@ -449,10 +462,10 @@ def main(args: argparse.Namespace) -> None:
         pretrained_model = opts.pretrained_model
 
         # Load dataset
-        pert_data = load_dataset(opts, DATA_DIR_PATH)
+        pert_data = load_dataset(opts, DATA_DIR_PATH, SINGLE_DATA_ONLY)
 
         # Load model based on configuration or new configurations
-        model, loaded_model_configs = load_foundation_model(opts, pert_data, FOUNDATION_MODEL_PATH, pretrained_model, device, logger)
+        model, loaded_model_configs = load_foundation_model(opts, pert_data, FOUNDATION_MODEL_PATH, pretrained_model, logger)
         model.to(device)
 
         # Training model, validating and keeping best model from validation

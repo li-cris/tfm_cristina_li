@@ -4,7 +4,7 @@ from gears import PertData
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 
 
-def load_dataset(opts, DATA_DIR_PATH: str) -> PertData:
+def load_dataset(opts, DATA_DIR_PATH: str, SINGLE_DATA_ONLY: bool = True) -> PertData:
     """
     Loads and prepares the perturbation dataset for training and evaluation.
 
@@ -29,7 +29,17 @@ def load_dataset(opts, DATA_DIR_PATH: str) -> PertData:
     # Loading dataset from directory it is found in
     pert_data = PertData(DATA_DIR_PATH)
     pert_data.load(data_path=os.path.join(DATA_DIR_PATH, dataset_name))
-    pert_data.prepare_split(split=split, seed=seed)
+
+    if SINGLE_DATA_ONLY:
+        pert_data.prepare_split(
+            split=split,
+            seed=seed,
+            train_gene_set_size=1.0,
+            combo_seen2_train_frac=0.0
+        )
+
+    else:
+        pert_data.prepare_split(split=split, seed=seed)
     pert_data.get_dataloader(batch_size=batch_size, test_batch_size=eval_batch_size)
 
     return pert_data

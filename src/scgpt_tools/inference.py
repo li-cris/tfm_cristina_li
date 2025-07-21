@@ -3,8 +3,9 @@ import torch
 from torch_geometric.loader import DataLoader
 
 from typing import Dict, List, Optional
+from scipy.stats import pearsonr
 
-from scgpt_tool.model import TransformerGenerator
+from scgpt.model import TransformerGenerator
 
 import numpy as np
 from gears.utils import create_cell_graph_dataset_for_prediction
@@ -131,12 +132,13 @@ def evaluate_double(opts: None,
     eval_batch_size = opts.eval_batch_size
     include_zero_gene = opts.include_zero_gene
     seed = opts.seed
+    top_deg = opts.top_deg
 
     with open(file=double_results_file_path, mode="w") as f:
         print(
-            "double,mmd_true_vs_ctrl,mmd_true_vs_pred,mse_true_vs_ctrl,mse_true_vs_pred,kld_true_vs_ctrl,kld_true_vs_pred",
+            f"double,mmd_true_vs_ctrl,mmd_true_vs_pred,mse_true_vs_ctrl,mse_true_vs_pred,kld_true_vs_ctrl,kld_true_vs_pred,PearsonTop{top_deg}_true_vs_ctrl,Pearson_pval_true_vs_ctrl,PearsonTop{top_deg}_true_vs_pred,Pearson_pval_true_vs_pred",
             file=f,
-            )
+        )
 
         print(f"Evaluating predictions with {pool_size} samples pert double perturbation...")
         mean_result_pred = {}
@@ -166,39 +168,55 @@ def evaluate_double(opts: None,
                 random_indices = np.random.choice(double_adata.n_obs, size=pool_size, replace=False)
                 true_geps = double_adata[random_indices, :]
 
-            # Tensorize data
-            # pred_geps_tensor = torch.tensor(result_pred["_".join(pert_list)])
-            pred_geps_tensor = torch.tensor(result_pred)
-            true_geps_tensor = torch.tensor(true_geps.X.toarray())
+            # Getting another random control set of data
+            # Another random ctrl_gep
+            ctrl_adata = pert_data.adata[pert_data.adata.obs["condition"] == "ctrl"]
+            random_indices = np.random.choice(
+                ctrl_adata.n_obs, size=pool_size, replace=False
+            )
+            ctrl_geps_2 = ctrl_adata[random_indices, :]
 
+
+            # Tensor conversion and differential expression
+            ctrl_ctrl_geps_tensor = torch.tensor(ctrl_geps_2.X.toarray()) - ctrl_geps_tensor
+            true_ctrl_geps_tensor = torch.tensor(true_geps.X.toarray()) - ctrl_geps_tensor
+            pred_ctrl_geps_tensor = torch.tensor(result_pred) - ctrl_geps_tensor
 
             # MMD
             # MMD setup.
             mmd_sigma = 200.0
             kernel_num = 10
             mmd_loss = MMDLoss(fix_sigma=mmd_sigma, kernel_num=kernel_num)
-            # Compute MMD for the entire batch.
+
+            # Compute MMD 
             mmd_true_vs_ctrl = mmd_loss.forward(
-                source=ctrl_geps_tensor, target=true_geps_tensor
-                )
+                            source=ctrl_ctrl_geps_tensor, target=true_ctrl_geps_tensor
+                        )
 
             mmd_true_vs_pred = mmd_loss.forward(
-                source=pred_geps_tensor, target=true_geps_tensor
-                )
+                source=pred_ctrl_geps_tensor, target=true_ctrl_geps_tensor
+            )
 
-
-            # Compute MSE for the entire batch.
+            # Compute MSE
             mse_true_vs_ctrl = torch.mean(
-                (true_geps_tensor - ctrl_geps_tensor) ** 2
-                ).item()
-
+                (true_ctrl_geps_tensor - ctrl_ctrl_geps_tensor) ** 2
+            ).item()
             mse_true_vs_pred = torch.mean(
-                (true_geps_tensor - pred_geps_tensor) ** 2
-                ).item()
+                (true_ctrl_geps_tensor - pred_ctrl_geps_tensor) ** 2
+            ).item()
 
             # Compute KLD
-            kld_true_vs_ctrl = compute_kld(true_geps_tensor, ctrl_geps_tensor)
-            kld_true_vs_pred = compute_kld(true_geps_tensor, pred_geps_tensor)
+            kld_true_vs_ctrl = compute_kld(true_ctrl_geps_tensor, ctrl_ctrl_geps_tensor)
+            kld_true_vs_pred = compute_kld(true_ctrl_geps_tensor, pred_ctrl_geps_tensor)
+
+            # Compute Pearson for top DEG
+            true_deg = true_ctrl_geps_tensor.mean(dim=0).cpu().detach().numpy()
+            ctrl_ctrl_deg = ctrl_ctrl_geps_tensor.mean(dim=0).cpu().detach().numpy()
+            pred_deg = pred_ctrl_geps_tensor.mean(dim=0).cpu().detach().numpy()
+            topdeg_idx = np.argsort(abs(true_deg))[-top_deg:]
+
+            ctrl_true_pearson_stat,  ctrl_true_pearson_pval = pearsonr(true_deg[topdeg_idx], ctrl_ctrl_deg[topdeg_idx])
+            pred_true_pearson_stat,  pred_true_pearson_pval = pearsonr(true_deg[topdeg_idx], pred_deg[topdeg_idx])
 
             print(f"MMD (true vs. control):   {mmd_true_vs_ctrl:10.6f}")
             print(f"MMD (true vs. predicted): {mmd_true_vs_pred:10.6f}")
@@ -206,11 +224,14 @@ def evaluate_double(opts: None,
             print(f"MSE (true vs. predicted): {mse_true_vs_pred:10.6f}")
             print(f"KLD (true vs. control):   {kld_true_vs_ctrl:10.6f}")
             print(f"KLD (true vs. predicted): {kld_true_vs_pred:10.6f}")
+            print(f"Pearson Top {top_deg} DEG (true vs. control): {ctrl_true_pearson_stat:.6f} | p-value: {ctrl_true_pearson_pval:.6f}")
+            print(f"Pearson Top {top_deg} DEG (true vs. predicted): {pred_true_pearson_stat:.6f} | p-value: {pred_true_pearson_pval:.6f}")
+
 
             print(
-                f"{double},{mmd_true_vs_ctrl},{mmd_true_vs_pred},{mse_true_vs_ctrl},{mse_true_vs_pred},{kld_true_vs_ctrl},{kld_true_vs_pred}",
+                f"{double},{mmd_true_vs_ctrl},{mmd_true_vs_pred},{mse_true_vs_ctrl},{mse_true_vs_pred},{kld_true_vs_ctrl},{kld_true_vs_pred},{ctrl_true_pearson_stat},{ctrl_true_pearson_pval},{pred_true_pearson_stat},{pred_true_pearson_pval}",
                 file=f,
-                )
+            )
 
         print(f"Metrics saved to {double_results_file_path}.")
 
