@@ -4,7 +4,7 @@ from gears import PertData
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 
 
-def load_dataset(opts, DATA_DIR_PATH: str, SINGLE_DATA_ONLY: bool = True) -> PertData:
+def load_dataset(opts, seed: int, DATA_DIR_PATH: str, SINGLE_DATA_ONLY: bool = True) -> PertData:
     """
     Loads and prepares the perturbation dataset for training and evaluation.
 
@@ -22,7 +22,6 @@ def load_dataset(opts, DATA_DIR_PATH: str, SINGLE_DATA_ONLY: bool = True) -> Per
     # Specifying parameters
     dataset_name = opts.dataset_name
     split = opts.split
-    seed = opts.seed # Review, might change with iterations
     batch_size = opts.batch_size
     eval_batch_size = opts.eval_batch_size
 

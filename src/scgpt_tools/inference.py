@@ -3,6 +3,7 @@ import torch
 from torch_geometric.loader import DataLoader
 
 from typing import Dict, List, Optional
+import random
 from scipy.stats import pearsonr
 
 from scgpt.model import TransformerGenerator
@@ -13,6 +14,12 @@ from gears import PertData
 
 from data_utils.metrics import compute_kld, MMDLoss
 
+
+def set_seeds(seed: int) -> None:
+    """Set random seeds for reproducibility."""
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
 
 def predict(
     model: TransformerGenerator, pert_list: List[str], pert_data: PertData,
@@ -62,10 +69,15 @@ def predict(
                 if batch_data.x.dim() == 1:
                     batch_data.x = batch_data.x.unsqueeze(1) # (num_genes*eval_batch_size, 1)
 
+                # Add perturbation flags to batch data
+                actual_batch_size = batch_data.num_graphs
                 pert_flags = [1 if gene in pert else 0 for gene in gene_list] # dim: (num_genes, )
                 pert_flags = torch.tensor(pert_flags, dtype=torch.long, device=device)
-                pert_flags = pert_flags.repeat(eval_batch_size) # (num_genes * eval_batch_size, )
+                pert_flags = pert_flags.repeat(actual_batch_size) # (num_genes * eval_batch_size, )
                 pert_flags = pert_flags.unsqueeze(1) # (num_genes * eval_batch_size, 1)
+
+                assert (batch_data.x.size(0) == pert_flags.size(0)
+                        ), f"Mismatch: x has {batch_data.x.size(0)}, pert_flags has {pert_flags.size(0)}"
 
                 batch_data.x = torch.cat([batch_data.x, pert_flags], dim=1) # (num_genes*eval_batch_size, 2))
 
@@ -85,8 +97,8 @@ def predict(
 
 def evaluate_double(opts: None,
                     gene_ids: np.ndarray,
+                    seed: int,
                     double_results_file_path: str,
-                    ctrl_geps_tensor: torch.Tensor,
                     model: TransformerGenerator,
                     pert_data: PertData,
                     double_perturbations: set = None) -> dict:
@@ -131,7 +143,6 @@ def evaluate_double(opts: None,
     pool_size = opts.pool_size
     eval_batch_size = opts.eval_batch_size
     include_zero_gene = opts.include_zero_gene
-    seed = opts.seed
     top_deg = opts.top_deg
 
     with open(file=double_results_file_path, mode="w") as f:
@@ -140,47 +151,55 @@ def evaluate_double(opts: None,
             file=f,
         )
 
-        print(f"Evaluating predictions with {pool_size} samples pert double perturbation...")
+        print(f"Evaluating predictions with {pool_size} samples per double perturbation...")
         mean_result_pred = {}
         for i, double in enumerate(double_perturbations):
 
             print(f"Evaluating double {double}: {i + 1}/{len(double_perturbations)}")
             pert_list = [double.split("+")] # This should be a list, but it's only one double pert
 
+            # Getting some samples for the current double pert
+            double_adata = pert_data.adata[pert_data.adata.obs["condition"] == double]
+            set_seeds(seed)
+            if double_adata.n_obs>pool_size:
+                n = pool_size
+            else:
+                # If less than pool size, keep only available samples
+                n = double_adata.n_obs
+                print(f"Not enough samples for double perturbation, using all available {n} samples.")
+            random_indices = np.random.choice(double_adata.n_obs, size=n, replace=False)
+            true_geps = double_adata[random_indices, :]
+
+            # Get control samples
+            # First control batch
+            ctrl_adata = pert_data.adata[pert_data.adata.obs["condition"] == "ctrl"]
+            random_indices = np.random.choice(
+                ctrl_adata.n_obs, size=n, replace=False
+                )
+            ctrl_geps = ctrl_adata[random_indices, :]
+            ctrl_geps_tensor = torch.tensor(ctrl_geps.X.toarray())
+            # Second control batch
+            random_indices = np.random.choice(
+                ctrl_adata.n_obs, size=n, replace=False
+            )
+            ctrl_geps_2 = ctrl_adata[random_indices, :]
+
+
             # Perturbation prediction for pool_size for current double
             result_pred = predict(model=model, pert_list=pert_list, pert_data=pert_data,
-                                eval_batch_size=eval_batch_size, include_zero_gene=include_zero_gene, gene_ids=gene_ids, pool_size=pool_size)
+                                eval_batch_size=eval_batch_size, include_zero_gene=include_zero_gene, gene_ids=gene_ids, pool_size=n)
 
             for pert in pert_list:
                 pert_name = "_".join(str(p) for p in pert)
 
             mean_result_pred[pert_name] = np.mean(result_pred, axis=0)
 
-            # Getting some samples for the current double pert
-            np.random.seed(seed)
-            double_adata = pert_data.adata[pert_data.adata.obs["condition"] == double]
-            if double_adata.n_obs < pool_size:
-                print(f"Warning: Not enough samples for {double}. Randomly selection samples from {double_adata.n_obs} samples.")
-                true_geps = double_adata.copy()
-                true_geps = true_geps[np.random.choice(double_adata.n_obs, size=pool_size, replace=True), :]
-
-            else:
-                random_indices = np.random.choice(double_adata.n_obs, size=pool_size, replace=False)
-                true_geps = double_adata[random_indices, :]
-
-            # Getting another random control set of data
-            # Another random ctrl_gep
-            ctrl_adata = pert_data.adata[pert_data.adata.obs["condition"] == "ctrl"]
-            random_indices = np.random.choice(
-                ctrl_adata.n_obs, size=pool_size, replace=False
-            )
-            ctrl_geps_2 = ctrl_adata[random_indices, :]
-
 
             # Tensor conversion and differential expression
             ctrl_ctrl_geps_tensor = torch.tensor(ctrl_geps_2.X.toarray()) - ctrl_geps_tensor
             true_ctrl_geps_tensor = torch.tensor(true_geps.X.toarray()) - ctrl_geps_tensor
             pred_ctrl_geps_tensor = torch.tensor(result_pred) - ctrl_geps_tensor
+
 
             # MMD
             # MMD setup.

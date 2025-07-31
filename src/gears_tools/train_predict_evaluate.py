@@ -139,7 +139,7 @@ def main():
     )
     parser.add_argument("--project_name", type=str, default="gears", help="Custom name for the project."
     )
-    parser.add_argument("--dataset_name", type=str, default="norman", help="Name of dataset in DATA_DIR_PATH."
+    parser.add_argument("--dataset_name", type=str, default="norman", help="Name of dataset in DATA_DIR_PATH. Currently done with 'norman' and 'replogle_rpe1_essential'."
     )
     parser.add_argument("--pool_size", type=int, default=250, help="Size of the pool for evaluation."
     )
@@ -171,7 +171,13 @@ def main():
     data_name = args.dataset_name
     print(f"Loading '{data_name}' data.")
     pertdata = PertData(DATA_DIR_PATH)
-    pertdata.load(data_path=os.path.join(DATA_DIR_PATH, data_name))
+
+    # Donwload from database or load from path once it has been downloaded.
+    if not os.path.exists(os.path.join(DATA_DIR_PATH, data_name)):
+        print("Extracting from GEARS database.")
+        pertdata.load(data_name=data_name)
+    else:
+        pertdata.load(data_path=os.path.join(DATA_DIR_PATH, data_name))
 
     seed = args.seed
 
@@ -193,6 +199,20 @@ def main():
             pertdata.adata = pertdata.adata[pertdata.adata.obs['condition'].str.contains('ctrl')]
             pertdata.prepare_split(split=args.split, seed=current_seed)
 
+            temp_data_path = os.path.join(DATA_DIR_PATH, args.dataset_name, 'split_columns')
+            if not os.path.exists(temp_data_path):
+                os.makedirs(temp_data_path, exist_ok=True)
+            split_column_file = f"{args.dataset_name}_split_{args.split}_seed_{str(current_seed)}_split_column.csv"
+
+            # Saving the created adata.obs['split] because it doesn't get saved in pertdata.adata when reloading
+            if 'split' in pertdata.adata.obs.columns:
+                pertdata.adata.obs['split'].to_csv(os.path.join(temp_data_path, split_column_file), index=True)
+
+            # Readding the split column if it was not present in adata.obs for later use
+            if 'split' not in pertdata.adata.obs.columns:
+                split_column = pd.read_csv(os.path.join(temp_data_path, split_column_file), index_col=0)
+                pertdata.adata.obs['split'] = split_column['split']
+
         # Condition to evaluate double perturbation dataset with single perturbations in training
         elif SINGLE_TRAIN_ONLY and args.split != 'simulation_single':
             # If training only has single perturbations, we need to set the train_gene_set_size
@@ -209,6 +229,7 @@ def main():
         else:
             print("Training with both single and double perturbation data and evaluating with double perturbations.")
             pertdata.prepare_split(split=args.split, seed=current_seed)
+
         pertdata.get_dataloader(batch_size=32)
 
         # Train.
@@ -231,11 +252,19 @@ def main():
         # Evaluate.
         pertdata = PertData(DATA_DIR_PATH)
         pertdata.load(data_path=os.path.join(DATA_DIR_PATH, data_name))
+
         if PREDICT_DOUBLE:
             evaluate_double(adata=pertdata.adata, model_name=model_name,
                             results_savedir=results_savedir, pool_size=args.pool_size,
                             seed=current_seed, top_deg=args.top_deg)
         if PREDICT_SINGLE:
+            if 'split' not in pertdata.adata.obs.columns:
+                temp_data_path = os.path.join(DATA_DIR_PATH, args.dataset_name, 'split_columns')
+                split_column_file = f"{args.dataset_name}_split_{args.split}_seed_{str(current_seed)}_split_column.csv"
+                split_column = pd.read_csv(os.path.join(temp_data_path, split_column_file), index_col=0)
+
+                pertdata.adata.obs['split'] = split_column['split']
+
             evaluate_single(adata=pertdata.adata, model_name=model_name,
                             results_savedir=results_savedir, pool_size=args.pool_size,
                             seed=current_seed, top_deg=args.top_deg)

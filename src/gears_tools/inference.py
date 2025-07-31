@@ -160,8 +160,8 @@ def evaluate_single(adata: AnnData, model_name: str, results_savedir: str,
             pred_geps = np.array([pred_geps])
 
             # Get split during train/val/test
-            split_type1 = split_map.get('+'.join([single, 'ctrl']), 'Unknown')
-            split_type2 = split_map.get('+'.join(['ctrl', single]), 'Unknown')
+            split_type1 = split_map.get(f'{str(single)}+ctrl', 'Unknown')
+            split_type2 = split_map.get(f'ctrl+{str(single)}', 'Unknown')
 
             # Get all the true GEPs with the current single perturbation.
             print(f"Evaluating single {i + 1}/{len(df['single'])}: {single}")
@@ -170,6 +170,8 @@ def evaluate_single(adata: AnnData, model_name: str, results_savedir: str,
                 (adata.obs["condition"] == '+'.join([single, 'ctrl'])) |
                 (adata.obs["condition"] == '+'.join(['ctrl', single]))
             ]
+
+            set_seeds(seed)
 
             # Limiting n
             if true_geps.n_obs>pool_size:
@@ -180,8 +182,6 @@ def evaluate_single(adata: AnnData, model_name: str, results_savedir: str,
                 # If less than pool size, keep only available samples
                 n = true_geps.n_obs
                 print(f"Not enough samples for single perturbation, using all available {n} samples.")
-
-            set_seeds(seed)
 
             # Obtaining random sample of ctrl GEP
             all_ctrl_geps = adata[adata.obs["condition"] == "ctrl"]

@@ -168,7 +168,7 @@ def parse_args():
                         help='Random seed for reproduciibility.')
 
     parser.add_argument('--learning_rate', type=float,
-                        default=json_config.get('learning_rate', 0.01),
+                        default=json_config.get('learning_rate', 1e-4),
                         help='Learning rate for the optimizer.')
 
     parser.add_argument('--batch_size', type=int,
@@ -462,7 +462,7 @@ def main(args: argparse.Namespace) -> None:
         pretrained_model = opts.pretrained_model
 
         # Load dataset
-        pert_data = load_dataset(opts, DATA_DIR_PATH, SINGLE_DATA_ONLY)
+        pert_data = load_dataset(opts, current_seed, DATA_DIR_PATH, SINGLE_DATA_ONLY)
 
         # Load model based on configuration or new configurations
         model, loaded_model_configs = load_foundation_model(opts, pert_data, FOUNDATION_MODEL_PATH, pretrained_model, logger)

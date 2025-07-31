@@ -347,7 +347,7 @@ class PertData:
             print_sys("Creating new splits....")
             if test_perts:
                 test_perts = test_perts.split('_')
-                    
+
             if split in ['simulation', 'simulation_single']:
                 # simulation split
                 DS = DataSplitter(self.adata, split_type=split)
@@ -368,7 +368,8 @@ class PertData:
                                           test_perts = test_perts,
                                           only_test_set_perts = only_test_set_perts
                                         )
-                
+                    self.adata.obs['split'] = adata.obs['split'].astype(str) # New added
+
             elif split[:5] == 'combo':
                 # combo perturbation
                 split_type = 'combo'
@@ -376,7 +377,7 @@ class PertData:
 
                 if test_pert_genes:
                     test_pert_genes = test_pert_genes.split('_')
-                
+
                 DS = DataSplitter(self.adata, split_type=split_type, seen=int(seen))
                 adata = DS.split_data(test_size=combo_single_split_test_set_fraction,
                                       test_perts=test_perts,

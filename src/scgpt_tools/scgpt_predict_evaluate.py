@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from dataclasses import dataclass, field
 from typing import List, Tuple
+import random
 
 # Torch
 import torch
@@ -262,11 +263,12 @@ def main(args):
         top_deg=args.top_deg
     )
 
+    scgpt_savedir = os.path.join(MODEL_DIR_PATH, "scgpt")
     for current_seed in opts.seed:
         print(f"Running evaluation with seed {current_seed}")
         # Path settings
         loaded_model_name = f"scgpt_{opts.dataset_name}_{opts.split}_seed_{current_seed}"
-        loaded_model_path = f"{MODEL_DIR_PATH}/{loaded_model_name}"
+        loaded_model_path = os.path.join(scgpt_savedir, loaded_model_name)
         result_savedir = os.path.join(RESULT_DIR_PATH, "scgpt")
         os.makedirs(result_savedir, exist_ok=True)
         print(f"saving to {result_savedir}")
@@ -288,31 +290,20 @@ def main(args):
 
 
         # Load data and model
-        pert_data = load_dataset(opts, DATA_DIR_PATH, SINGLE_DATA_ONLY)
+        pert_data = load_dataset(opts, current_seed, DATA_DIR_PATH, SINGLE_DATA_ONLY)
         gene_ids, vocab = get_gene_vocab(pert_data, opts, FOUNDATION_MODEL_PATH)
         model = load_model(opts, vocab, loaded_model_path, logger)
         model.to(device)
     
         clear_track_cache()
 
-        # Get control samples
-        pool_size = opts.pool_size
-        ctrl_adata = pert_data.adata[pert_data.adata.obs["condition"] == "ctrl"]
-        np.random.seed(current_seed)
-        random_indices = np.random.choice(
-            ctrl_adata.n_obs, size=pool_size, replace=False
-            )
-        ctrl_geps = ctrl_adata[random_indices, :]
-        ctrl_geps_tensor = torch.tensor(ctrl_geps.X.toarray())
-
         # Setting up csv file for metrics
         double_results_file_path = os.path.join(
             result_savedir, f"{loaded_model_name}_double_metrics.csv")
         
         if PREDICT_DOUBLE:
-            mean_result_pred = evaluate_double(opts, gene_ids,
+            mean_result_pred = evaluate_double(opts, gene_ids, current_seed,
                                             double_results_file_path,
-                                            ctrl_geps_tensor,
                                             model, pert_data)
             
             predictions_df = pd.DataFrame.from_dict(mean_result_pred, orient='index')
