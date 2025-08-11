@@ -11,10 +11,9 @@ from dataclasses import dataclass, field
 import torch
 from torch import nn
 
-# cell-gears module functions
-from gears import PertData
-#from gears.inference import compute_metrics, deeper_analysis, non_dropout_analysis
-#from gears.utils import create_cell_graph_dataset_for_prediction
+# GEARS
+# from gears import PertData
+
 
 # scGPT module functions
 import scgpt as scg
@@ -28,12 +27,15 @@ from scgpt.tokenizer import tokenize_batch, pad_batch, tokenize_and_pad_batch
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from scgpt.utils import set_seed, compute_perturbation_metrics
 
+# GEARS
+from gears_tools.pertdata import PertData
+
 # own scGPT functions
 from scgpt_tools.config_loader import model_config_loading, load_pretrained
 from scgpt_tools.model import train, eval_perturb, validate_perturbation_model
 from scgpt_tools.data import load_dataset
 
-# Set up directories
+# Set up directories (editable mode)
 FOUNDATION_MODEL_PATH  = './models/scGPT_human'
 PREDICT_DOUBLE = True
 MODEL_DIR_PATH = './models'
@@ -462,14 +464,14 @@ def main(args: argparse.Namespace) -> None:
         pretrained_model = opts.pretrained_model
 
         # Load dataset
-        pert_data = load_dataset(opts, current_seed, DATA_DIR_PATH, SINGLE_DATA_ONLY)
+        pertdata = load_dataset(opts, current_seed, DATA_DIR_PATH, SINGLE_DATA_ONLY)
 
         # Load model based on configuration or new configurations
-        model, loaded_model_configs = load_foundation_model(opts, pert_data, FOUNDATION_MODEL_PATH, pretrained_model, logger)
+        model, loaded_model_configs = load_foundation_model(opts, pertdata, FOUNDATION_MODEL_PATH, pretrained_model, logger)
         model.to(device)
 
         # Training model, validating and keeping best model from validation
-        best_model = train_perturbation_model(opts, loaded_model_configs, model, device, pert_data, logger, save_dir)
+        best_model = train_perturbation_model(opts, loaded_model_configs, model, device, pertdata, logger, save_dir)
 
         print(f"Saving best model at {save_dir}.")
         torch.save(best_model.state_dict(), os.path.join(save_dir, "best_model.pt"))

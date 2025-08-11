@@ -16,7 +16,8 @@ from gears import GEARS
 
 # Own imports
 from gears_tools.pertdata import PertData
-from gears_tools.inference import evaluate_double, evaluate_single
+# from gears_tools.inference import evaluate_double, evaluate_single
+from gears_tools.inference import MetricEvaluator
 
 
 DATA_DIR_PATH = "data"
@@ -253,10 +254,13 @@ def main():
         pertdata = PertData(DATA_DIR_PATH)
         pertdata.load(data_path=os.path.join(DATA_DIR_PATH, data_name))
 
+        evaluator = MetricEvaluator(adata=pertdata.adata, model_name=model_name,
+                                    results_savedir=results_savedir, pool_size=args.pool_size,
+                                    seed=current_seed, top_deg=args.top_deg)
+
         if PREDICT_DOUBLE:
-            evaluate_double(adata=pertdata.adata, model_name=model_name,
-                            results_savedir=results_savedir, pool_size=args.pool_size,
-                            seed=current_seed, top_deg=args.top_deg)
+            evaluator.evaluate_double()
+
         if PREDICT_SINGLE:
             if 'split' not in pertdata.adata.obs.columns:
                 temp_data_path = os.path.join(DATA_DIR_PATH, args.dataset_name, 'split_columns')
@@ -265,9 +269,7 @@ def main():
 
                 pertdata.adata.obs['split'] = split_column['split']
 
-            evaluate_single(adata=pertdata.adata, model_name=model_name,
-                            results_savedir=results_savedir, pool_size=args.pool_size,
-                            seed=current_seed, top_deg=args.top_deg)
+            evaluator.evaluate_single()
 
 if __name__ == "__main__":
     main()

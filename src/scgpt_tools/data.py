@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import pandas as pd
 from gears import PertData
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 
@@ -26,11 +27,33 @@ def load_dataset(opts, seed: int, DATA_DIR_PATH: str, SINGLE_DATA_ONLY: bool = T
     eval_batch_size = opts.eval_batch_size
 
     # Loading dataset from directory it is found in
-    pert_data = PertData(DATA_DIR_PATH)
-    pert_data.load(data_path=os.path.join(DATA_DIR_PATH, dataset_name))
+    pertdata = PertData(DATA_DIR_PATH)
+    pertdata.load(data_path=os.path.join(DATA_DIR_PATH, dataset_name))
 
-    if SINGLE_DATA_ONLY:
-        pert_data.prepare_split(
+
+    if split == 'simulation_single':
+        print("Training and evaluating with single perturbation data.")
+        pertdata.adata = pertdata.adata[pertdata.adata.obs['condition'].str.contains('ctrl')]
+        pertdata.prepare_split(split=split, seed=seed)
+
+        temp_data_path = os.path.join(DATA_DIR_PATH, dataset_name, 'split_columns')
+        if not os.path.exists(temp_data_path):
+            os.makedirs(temp_data_path, exist_ok=True)
+        split_column_file = f"{dataset_name}_split_{split}_seed_{str(seed)}_split_column.csv"
+
+        # Saving the created adata.obs['split] because it doesn't get saved in pertdata.adata when reloading
+        if 'split' in pertdata.adata.obs.columns:
+            pertdata.adata.obs['split'].to_csv(os.path.join(temp_data_path, split_column_file), index=True)
+
+        # Readding the split column if it was not present in adata.obs for later use
+        if 'split' not in pertdata.adata.obs.columns:
+            split_column = pd.read_csv(os.path.join(temp_data_path, split_column_file), index_col=0)
+            pertdata.adata.obs['split'] = split_column['split']
+
+
+    elif SINGLE_DATA_ONLY and split != 'simulation_single':
+        print("Keeping only single perturbation samples in training.")
+        pertdata.prepare_split(
             split=split,
             seed=seed,
             train_gene_set_size=1.0,
@@ -38,10 +61,13 @@ def load_dataset(opts, seed: int, DATA_DIR_PATH: str, SINGLE_DATA_ONLY: bool = T
         )
 
     else:
-        pert_data.prepare_split(split=split, seed=seed)
-    pert_data.get_dataloader(batch_size=batch_size, test_batch_size=eval_batch_size)
+        print("Training with both single and double perturbation data and evaluating with double perturbations.")
+        pertdata.prepare_split(split=split, seed=seed)
 
-    return pert_data
+    pertdata.get_dataloader(batch_size=batch_size, test_batch_size=eval_batch_size)
+
+    return pertdata
+
 
 def get_gene_vocab(pert_data: PertData, opts: None, foundation_model_path: str) -> None:
     """

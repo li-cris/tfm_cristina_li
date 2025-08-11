@@ -5,7 +5,6 @@ import pandas as pd
 import os
 import scanpy as sc
 import json
-from scipy.stats import pearsonr
 
 from typing import Dict
 
@@ -13,7 +12,7 @@ from lgem.models import (
     LinearGeneExpressionModelLearned,
     LinearGeneExpressionModelOptimized,
 )
-from lgem.utils import predict_evaluate_lgem_double
+from lgem.utils import predict_evaluate_lgem_double, set_seeds, evaluate_double_metrics
 from data_utils.single_norman_utils import separate_data
 from lgem.lgem_run import parse_args
 
@@ -96,8 +95,11 @@ def parse_args() -> argparse.Namespace:
         "--top_deg", type=int, default=20, help="Number of Differentially Expressed Genes to evaluate."
     )
 
-    return parser.parse_args()
+    parser.add_argument(
+        "--pool_size", type=int, default=200, help="Number of control cells to randomly sample for evaluation."
+    )
 
+    return parser.parse_args()
 
 def main(args):
     # Load previous configuration first
@@ -111,10 +113,12 @@ def main(args):
     n_epochs=prev_args.get('epochs', args.epochs)
     batch_size=prev_args.get('batch_size', args.batch_size)
     top_deg=prev_args.get('top_deg', args.top_deg)
+    pool_size=prev_args.get('pool_size', args.pool_size)
 
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
-    torch.manual_seed(seed)
+
+    set_seeds(seed)
 
     # Loading data for control samples
     dataset_name=prev_args.get('dataset_name', args.dataset_name)
@@ -123,7 +127,7 @@ def main(args):
     global_data_path=os.path.join(data_dir, dataset_name + ".h5ad")
     print(f"Loading dataset from {global_data_path}.")
     pertdata = sc.read(global_data_path)
-    _, _, pertdata_ctrl = separate_data(adata = pertdata, dataset_name = dataset_name)
+    _, pertdata_double, pertdata_ctrl = separate_data(adata = pertdata, dataset_name = dataset_name)
 
 
     for current_run in range(num_runs):
@@ -151,61 +155,85 @@ def main(args):
         # Learned model
         model_learned = LinearGeneExpressionModelLearned(G, b)
         model_learned.load_state_dict(torch.load(os.path.join(savedir, "learned_best_model.pt")))
-        _, double_predictions_learn, _, mse_pred_learn= predict_evaluate_lgem_double(model_learned, device, test_dataloader, perturbation_list)
+        _, double_predictions_learn, _, mse_pred_learn= predict_evaluate_lgem_double(model_learned, device, test_dataloader, perturbation_list)    
 
-        # Randomly chosen control cells for baseline
-        rand_idx = np.random.randint(low=0, high=pertdata_ctrl.X.shape[0], size=len(double_perts_list_op))
-        baseline_control = pertdata_ctrl.X[rand_idx, :].toarray()
+        double_predictions_op = np.array(double_predictions_op)
+        double_predictions_learn = np.array(double_predictions_learn)
 
-        # Turning profiles into arrays
-        double_predictions_op = np.asarray(double_predictions_op)
-        double_predictions_learn = np.asarray(double_predictions_learn)
-        gt = np.asarray(ground_truth)
-        baseline_control = np.asarray(baseline_control) # Redundant I tink but it broke
+        # Metrics for optmized model
+        print("Evaluating metrics for optimized model.")
+        evaluate_double_metrics(double_adata=pertdata_double, ctrl_adata=pertdata_ctrl,
+                                predictions=double_predictions_op,
+                                model_name=model_name, results_savedir=args.eval_dir,
+                                double_perts=double_perts_list_op,
+                                pool_size=pool_size, seed=current_seed, top_deg=top_deg,
+                                model_type='op')
 
+        # Metrics for learned model
+        print("Evaluating metrics for learned model.")
+        evaluate_double_metrics(double_adata=pertdata_double, ctrl_adata=pertdata_ctrl,
+                                predictions=double_predictions_learn,
+                                model_name=model_name, results_savedir=args.eval_dir,
+                                double_perts=double_perts_list_op,
+                                pool_size=pool_size, seed=current_seed, top_deg=top_deg,
+                                model_type='learn')
 
-        # Calculate true - pred MSE
-        mse_control_op = np.mean((gt - baseline_control) ** 2, axis = 1)
-        mse_control_learn = np.mean((gt - baseline_control) ** 2, axis = 1)
-        print("Finalised MSE calculations.")
-
-        # Calculate Pearson correlation
-        gt_deg = gt - baseline_control
-        deg_idx = np.argsort(abs(gt_deg), axis=1)[:, -top_deg:]
-
-        # Select values along the top DEG indices for each sample
-        pred_op_selected = np.take_along_axis(double_predictions_op - baseline_control, deg_idx, axis=1)
-        pred_learn_selected = np.take_along_axis(double_predictions_learn - baseline_control, deg_idx, axis=1)
-        gt_selected = np.take_along_axis(gt_deg, deg_idx, axis=1)
-
-        pearson_op = np.array([pearsonr(pred_op_selected[i], gt_selected[i])
-                            for i in range(pred_op_selected.shape[0])
-                            ])
-        pearson_learn = np.array([pearsonr(pred_learn_selected[i], gt_selected[i])
-                            for i in range(pred_learn_selected.shape[0])
-                       ])
-
-        # Save metrics to result dir
-        result_df = pd.DataFrame({"double": double_perts_list_op,
-                                "mse_true_vs_ctrl_op": mse_control_op,
-                                "mse_true_vs_ctrl_learn": mse_control_learn,
-                                "mse_true_vs_pred_op": mse_pred_op,
-                                "mse_true_vs_pred_learn": mse_pred_learn,
-                                f"PearsonTop{top_deg}_true_vs_pred_op": pearson_op[:, 0],
-                                "Pearson_pval_true_vs_pred_op": pearson_op[:, 1],
-                                f"PearsonTop{top_deg}_true_vs_pred_learn": pearson_learn[:, 0],
-                                "Pearson_pval_true_vs_pred_learn": pearson_learn[:, 1]})
-
+        # Saving predictions
         double_pred_op = pd.DataFrame(double_predictions_op, columns=pertdata_ctrl.var_names)
         double_pred_op.insert(0, 'double', double_perts_list_op)
         double_pred_learn = pd.DataFrame(double_predictions_learn, columns=pertdata_ctrl.var_names)
         double_pred_learn.insert(0, 'double', double_perts_list_op)
 
-
         double_pred_op.to_csv(os.path.join(args.eval_dir, f"{model_name}_double_predictions_op.csv"), index=False)
         double_pred_learn.to_csv(os.path.join(args.eval_dir, f"{model_name}_double_predictions_learn.csv"), index=False)
-        result_df.to_csv(os.path.join(args.eval_dir, f"{model_name}_double_metrics.csv"), index=False)
-        print(f"Results saved to {os.path.join(args.eval_dir, f'{model_name}_double_metrics.csv')}")
+        print("Prediction GEPs saved.")
+
+        # # Randomly chosen control cells for baseline
+        # rand_idx = np.random.randint(low=0, high=pertdata_ctrl.X.shape[0], size=len(double_perts_list_op))
+        # baseline_control = pertdata_ctrl.X[rand_idx, :].toarray()
+
+        # # Turning profiles into arrays
+        # double_predictions_op = np.asarray(double_predictions_op)
+        # double_predictions_learn = np.asarray(double_predictions_learn)
+        # gt = np.asarray(ground_truth)
+        # baseline_control = np.asarray(baseline_control) # Redundant I tink but it broke
+
+
+        # DGEP True - Pred
+    
+        # DGEP True - Control
+
+        # # Calculate true - pred MSE
+        # mse_control_op = np.mean((gt - baseline_control) ** 2, axis = 1)
+        # mse_control_learn = np.mean((gt - baseline_control) ** 2, axis = 1)
+        # print("Finalised MSE calculations.")
+
+        # # Calculate Pearson correlation
+        # gt_deg = gt - baseline_control
+        # deg_idx = np.argsort(abs(gt_deg), axis=1)[:, -top_deg:]
+
+        # # Select values along the top DEG indices for each sample
+        # pred_op_selected = np.take_along_axis(double_predictions_op - baseline_control, deg_idx, axis=1)
+        # pred_learn_selected = np.take_along_axis(double_predictions_learn - baseline_control, deg_idx, axis=1)
+        # gt_selected = np.take_along_axis(gt_deg, deg_idx, axis=1)
+
+        # pearson_op = np.array([pearsonr(pred_op_selected[i], gt_selected[i])
+        #                     for i in range(pred_op_selected.shape[0])
+        #                     ])
+        # pearson_learn = np.array([pearsonr(pred_learn_selected[i], gt_selected[i])
+        #                     for i in range(pred_learn_selected.shape[0])
+        #                ])
+
+        # # Save metrics to result dir
+        # result_df = pd.DataFrame({"double": double_perts_list_op,
+        #                         "mse_true_vs_ctrl_op": mse_control_op,
+        #                         "mse_true_vs_ctrl_learn": mse_control_learn,
+        #                         "mse_true_vs_pred_op": mse_pred_op,
+        #                         "mse_true_vs_pred_learn": mse_pred_learn,
+        #                         f"PearsonTop{top_deg}_true_vs_pred_op": pearson_op[:, 0],
+        #                         "Pearson_pval_true_vs_pred_op": pearson_op[:, 1],
+        #                         f"PearsonTop{top_deg}_true_vs_pred_learn": pearson_learn[:, 0],
+        #                         "Pearson_pval_true_vs_pred_learn": pearson_learn[:, 1]})
 
 
 

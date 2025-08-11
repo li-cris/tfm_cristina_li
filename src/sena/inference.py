@@ -252,7 +252,8 @@ def evaluate_single(model,
                     results_dir_path: str,
                     device: str,
                     run_name: str,
-                    numint: int = 1) -> None:
+                    numint: int = 1,
+                    split_ptb = None) -> None:
     """
     W
     """
@@ -267,19 +268,23 @@ def evaluate_single(model,
     # latdim = config.get("latdim", 105)
     # model_name = config.get("name", "example")
     batch_size = 5
-    split_ptbs=[
-        "ETS2",
-        "SGK1",
-        "POU3F2",
-        "TBX2",
-        "CBL",
-        "MAPK1",
-        "CDKN1C",
-        "S1PR2",
-        "PTPN1",
-        "MAP2K6",
-        "COL1A1",
-    ]
+    
+    if split_ptb is not None:
+        split_ptbs = split_ptb
+    else:
+        split_ptbs=[
+            "ETS2",
+            "SGK1",
+            "POU3F2",
+            "TBX2",
+            "CBL",
+            "MAPK1",
+            "CDKN1C",
+            "S1PR2",
+            "PTPN1",
+            "MAP2K6",
+            "COL1A1",
+        ]
 
     # Load raw data, Norman for now
     if os.path.exists(data_path):
@@ -329,6 +334,11 @@ def evaluate_single(model,
 
             # Initialise MMD function
             mmd_loss_func = MMDLoss(fix_sigma=MMD_sigma, kernel_num=kernel_num)
+
+            if len(ptb_genes)>250:
+                # Keep 300 random ptb_genes
+                print("Predicting for random 250 perturbation targets.")
+                ptb_genes = np.array(random.sample(list(ptb_genes), 250))
 
             for num, unique_pert in enumerate(ptb_genes):
                 print(f"Evaluating for intervention pair {num+1}/{len(ptb_genes)}: {unique_pert}")

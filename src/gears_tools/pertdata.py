@@ -17,7 +17,7 @@ from gears.utils import print_sys, zip_data_download_wrapper, dataverse_download
 
 class PertData:
     """
-    Class for loading and processing perturbation data. Slightly changed due to error in simulation_single
+    Class for loading and processing perturbation data. CHANGED from source code due to error in simulation_single
 
     Attributes
     ----------

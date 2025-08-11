@@ -7,6 +7,7 @@ import pickle
 import random
 import torch
 import numpy as np
+import pandas as pd
 from dataclasses import asdict, dataclass, field
 from typing import Any, Optional, List
 
@@ -18,8 +19,8 @@ from train import train
 
 # Own sena-related imports
 # Importable from pip install -e ../sypp
-from sena.sena_utils import check_and_load_paths
-from sena.inference import evaluate_double
+from sena.sena_utils import check_and_load_paths, ReplogleDataLoader
+from sena.inference import evaluate_double, evaluate_single
 
 
 # Set up logging
@@ -199,6 +200,8 @@ def main(args: argparse.Namespace) -> None:
         if 'Norman2019' in opts.dataset_name:
             data_handler = Norman2019DataLoader(batch_size=opts.batch_size, dataname=opts.dataset_name)
 
+        elif 'replogle' in opts.dataset_name:
+            data_handler = ReplogleDataLoader(batch_size=opts.batch_size, dataname=opts.dataset_name, path="../cris_test/data")
         else:
             raise ValueError(f"Dataset {opts.dataset_name} is not supported yet.")
 
@@ -212,7 +215,9 @@ def main(args: argparse.Namespace) -> None:
         ) = data_handler.get_data(mode="train")
 
         # Get data from double perturbation
-        dataloader_double, _, _, _ = data_handler.get_data(mode="test")
+        if 'replogle' not in opts.dataset_name:
+            dataloader_double, _, _, _ = data_handler.get_data(mode="test")
+            save_pickle(dataloader_double, os.path.join(savedir, "double_data.pkl"))
 
         # Dimensions for SENA
         opts.dim = dim
@@ -227,7 +232,6 @@ def main(args: argparse.Namespace) -> None:
         save_pickle(ptb_targets, os.path.join(savedir, "ptb_targets.pkl"))
         save_pickle(dataloader2, os.path.join(savedir, "test_data_single_node.pkl"))
         save_pickle(dataloader, os.path.join(savedir, "train_data.pkl"))
-        save_pickle(dataloader_double, os.path.join(savedir, "double_data.pkl"))
 
         # Review: currently only for double
         data_file_map = {
@@ -257,7 +261,7 @@ def main(args: argparse.Namespace) -> None:
         logging.info(f"Model and data saved in {savedir}.")
 
         # Loading required data from .pkl files for evaluation
-        (dataloader, model, ptb_genes, config) = check_and_load_paths(model_path=model_path, 
+        (dataloader, model, ptb_genes, config) = check_and_load_paths(model_path=model_path,
                     data_path=data_path,
                     ptb_path=ptb_path,
                     config_path=config_path,
@@ -269,20 +273,43 @@ def main(args: argparse.Namespace) -> None:
         model.eval()
 
         # Given that it is still in SENA folder
-        raw_data_path = os.path.join('../SENA/data',f"{opts.dataset_name}.h5ad")
+        if 'replogle' in opts.dataset_name:
+            raw_data_path = os.path.join('../cris_test/data',f"{opts.dataset_name}", "perturb_processed.h5ad")
+            ptb_path = os.path.join("../cris_test/data", f"{opts.dataset_name}", "top_genes.csv")
+            split_ptb = pd.read_csv(ptb_path)
+            split_ptb = split_ptb['guide_ids'].tolist()
+
+        else:
+            raw_data_path = os.path.join('../SENA/data',f"{opts.dataset_name}.h5ad")
+            split_ptb = None
 
         # Current model evaluation and saving metrics to the directory as CSV
-        evaluate_double(
-            model=model,
-            dataloader=dataloader,
-            data_path=raw_data_path,
-            config=config,
-            ptb_genes=ptb_genes,
-            results_dir_path=args.eval_dir,
-            run_name=run_name,
-            device=device,
-            numint=opts.numint
-        )
+        if "test" in opts.sena_eval_mode:
+            evaluate_single(
+                model=model,
+                dataloader=dataloader,
+                data_path=raw_data_path,
+                config=config,
+                ptb_genes=ptb_genes,
+                results_dir_path=args.eval_dir,
+                run_name=run_name,
+                device=device,
+                numint=1,
+                split_ptb=split_ptb
+            )
+
+        if "double" in opts.sena_eval_mode:
+            evaluate_double(
+                model=model,
+                dataloader=dataloader,
+                data_path=raw_data_path,
+                config=config,
+                ptb_genes=ptb_genes,
+                results_dir_path=args.eval_dir,
+                run_name=run_name,
+                device=device,
+                numint=2
+            )
 
         print("Process end.")
 

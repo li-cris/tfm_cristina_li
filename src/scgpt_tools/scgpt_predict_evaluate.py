@@ -13,7 +13,7 @@ import random
 import torch
 
 # GEARS
-from gears import PertData
+# from gears import PertData
 
 # scGPT module functions
 import scgpt as scg
@@ -22,17 +22,21 @@ from scgpt.model import TransformerGenerator
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 from scgpt.utils import set_seed
 
+# Gears (MODIFIED)
+from gears_tools.pertdata import PertData
+
 # own scGPT and metric functions
 from scgpt_tools.config_loader import model_config_loading
 from data_utils.metrics import compute_kld, MMDLoss
 from scgpt_tools.config_loader import load_pretrained
-from scgpt_tools.inference import predict, evaluate_double
+from scgpt_tools.inference import predict, scGPTMetricEvaluator
 from scgpt_tools.data import load_dataset, get_gene_vocab
 
 
 # Global paths for easy changes inside script
 FOUNDATION_MODEL_PATH  = './models/scGPT_human'
 PREDICT_DOUBLE = True
+PREDICT_SINGLE = False
 MODEL_DIR_PATH = './models'
 RESULT_DIR_PATH = './results'
 DATA_DIR_PATH = './data'
@@ -290,36 +294,55 @@ def main(args):
 
 
         # Load data and model
-        pert_data = load_dataset(opts, current_seed, DATA_DIR_PATH, SINGLE_DATA_ONLY)
-        gene_ids, vocab = get_gene_vocab(pert_data, opts, FOUNDATION_MODEL_PATH)
+        pertdata = load_dataset(opts, current_seed, DATA_DIR_PATH, SINGLE_DATA_ONLY)
+        gene_ids, vocab = get_gene_vocab(pertdata, opts, FOUNDATION_MODEL_PATH)
         model = load_model(opts, vocab, loaded_model_path, logger)
         model.to(device)
-    
+
         clear_track_cache()
 
         # Setting up csv file for metrics
-        double_results_file_path = os.path.join(
-            result_savedir, f"{loaded_model_name}_double_metrics.csv")
-        
         if PREDICT_DOUBLE:
-            mean_result_pred = evaluate_double(opts, gene_ids, current_seed,
-                                            double_results_file_path,
-                                            model, pert_data)
-            
-            predictions_df = pd.DataFrame.from_dict(mean_result_pred, orient='index')
-            predictions_df.columns = pert_data.adata.var_names
-            # Turn index into column
-            predictions_df.reset_index(inplace=True, names='double')
-
-            # Save predictions
+            results_file_path = os.path.join(
+                result_savedir, f"{loaded_model_name}_double_metrics.csv")
             prediction_file_path = os.path.join(result_savedir, f"{loaded_model_name}_double.csv")
-            predictions_df.to_csv(prediction_file_path, index=False)
-            print(f"Mean predictions saved to {prediction_file_path}.")
+        elif PREDICT_SINGLE:
+            results_file_path = os.path.join(
+                result_savedir, f"{loaded_model_name}_single_metrics.csv")
+            prediction_file_path = os.path.join(result_savedir, f"{loaded_model_name}_single.csv")
 
-            clear_track_cache()
+        # Setting up evaluator
+        evaluator = scGPTMetricEvaluator(opts, gene_ids, current_seed, results_file_path,
+                                         model, pertdata)
 
+        # Evaluating
+        if PREDICT_DOUBLE:
+            mean_result_pred = evaluator.evaluate_double()
+
+        elif PREDICT_SINGLE:
+            if 'split' not in pertdata.adata.obs.columns:
+                temp_data_path = os.path.join(DATA_DIR_PATH, args.dataset_name, 'split_columns')
+                split_column_file = f"{args.dataset_name}_split_{args.split}_seed_{str(current_seed)}_split_column.csv"
+                split_column = pd.read_csv(os.path.join(temp_data_path, split_column_file), index_col=0)
+
+                pertdata.adata.obs['split'] = split_column['split']
+
+            mean_result_pred = evaluator.evaluate_single()
         else:
-            print("Evaluation is currently only set for double perturbations. Stopping evaluation.")
+            print("Evaluation not set. Stopping evaluation.")
+            return
+
+        # Saving predictions
+        predictions_df = pd.DataFrame.from_dict(mean_result_pred, orient='index')
+        predictions_df.columns = pertdata.adata.var_names
+        # Turn index into column
+        predictions_df.reset_index(inplace=True, names='double')
+
+        # Save predictions
+        predictions_df.to_csv(prediction_file_path, index=False)
+        print(f"Mean predictions saved to {prediction_file_path}.")
+
+        clear_track_cache()
 
 
 
