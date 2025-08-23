@@ -36,6 +36,53 @@ def set_seeds(seed: int) -> None:
     np.random.seed(seed)
     random.seed(seed)
 
+
+def split_data(args, pertdata, seed):
+    """
+    Given the already loaded PertData object from GEARS, split based on arguments given (split and seed)
+    Depends on global variables from the script
+    """
+    # Condition to evaluate only single perturbation dataset
+    if args.split == 'simulation_single':
+        print("Training and evaluating with single perturbation data.")
+        pertdata.adata = pertdata.adata[pertdata.adata.obs['condition'].str.contains('ctrl')]
+        pertdata.prepare_split(split=args.split, seed=seed)
+
+        temp_data_path = os.path.join(DATA_DIR_PATH, args.dataset_name, 'split_columns')
+        if not os.path.exists(temp_data_path):
+            os.makedirs(temp_data_path, exist_ok=True)
+        split_column_file = f"{args.dataset_name}_split_{args.split}_seed_{str(seed)}_split_column.csv"
+
+        # Saving the created adata.obs['split] because it doesn't get saved in pertdata.adata when reloading
+        if 'split' in pertdata.adata.obs.columns:
+            pertdata.adata.obs['split'].to_csv(os.path.join(temp_data_path, split_column_file), index=True)
+
+        # Readding the split column if it was not present in adata.obs for later use
+        if 'split' not in pertdata.adata.obs.columns:
+            split_column = pd.read_csv(os.path.join(temp_data_path, split_column_file), index_col=0)
+            pertdata.adata.obs['split'] = split_column['split']
+
+    # Condition to evaluate double perturbation dataset with single perturbations in training
+    elif SINGLE_TRAIN_ONLY and args.split != 'simulation_single':
+        # If training only has single perturbations, we need to set the train_gene_set_size
+        # to 1.0 and combo_seen2_train_frac to 0.0.
+        print("Keeping only single perturbation samples in training.")
+        pertdata.prepare_split(
+            split=args.split,
+            seed=seed,
+            train_gene_set_size=1.0,
+            combo_seen2_train_frac=0.0
+        )
+
+    # Condition to evaluate double perturbation dataset with both types in training
+    # Split data and get dataloaders. This is based on same procedure as used for Figure 4 in
+    # the GEARS paper.
+    # See also: https://github.com/yhr91/GEARS_misc/blob/main/paper/Fig4_UMAP_train.py
+    else:
+        print("Training with both single and double perturbation data and evaluating with double perturbations.")
+        pertdata.prepare_split(split=args.split, seed=seed)
+
+
 def train(
     pert_data: PertData, dataset_name: str, model_savedir: str,
     split: str, seed: int, hidden_size: int, decoder_hidden_size: int,
@@ -188,49 +235,9 @@ def main():
         current_seed = seed + current_run
         print(f"Current run: {current_run + 1}/{args.num_runs}, Seed: {current_seed}")
 
-        # Split data and get dataloaders. This is the same procedure as used for Figure 4 in
-        # the GEARS paper.
-        # See also: https://github.com/yhr91/GEARS_misc/blob/main/paper/Fig4_UMAP_train.py
         # This split of train test sizes keeps singles in training and validation and doubles in testing
         print("Preparing data split.")
-
-        # Condition to evaluate only single perturbation dataset
-        if args.split == 'simulation_single':
-            print("Training and evaluating with single perturbation data.")
-            pertdata.adata = pertdata.adata[pertdata.adata.obs['condition'].str.contains('ctrl')]
-            pertdata.prepare_split(split=args.split, seed=current_seed)
-
-            temp_data_path = os.path.join(DATA_DIR_PATH, args.dataset_name, 'split_columns')
-            if not os.path.exists(temp_data_path):
-                os.makedirs(temp_data_path, exist_ok=True)
-            split_column_file = f"{args.dataset_name}_split_{args.split}_seed_{str(current_seed)}_split_column.csv"
-
-            # Saving the created adata.obs['split] because it doesn't get saved in pertdata.adata when reloading
-            if 'split' in pertdata.adata.obs.columns:
-                pertdata.adata.obs['split'].to_csv(os.path.join(temp_data_path, split_column_file), index=True)
-
-            # Readding the split column if it was not present in adata.obs for later use
-            if 'split' not in pertdata.adata.obs.columns:
-                split_column = pd.read_csv(os.path.join(temp_data_path, split_column_file), index_col=0)
-                pertdata.adata.obs['split'] = split_column['split']
-
-        # Condition to evaluate double perturbation dataset with single perturbations in training
-        elif SINGLE_TRAIN_ONLY and args.split != 'simulation_single':
-            # If training only has single perturbations, we need to set the train_gene_set_size
-            # to 1.0 and combo_seen2_train_frac to 0.0.
-            print("Keeping only single perturbation samples in training.")
-            pertdata.prepare_split(
-                split=args.split,
-                seed=current_seed,
-                train_gene_set_size=1.0,
-                combo_seen2_train_frac=0.0
-            )
-
-        # Condition to evaluate double perturbation dataset with both types in training
-        else:
-            print("Training with both single and double perturbation data and evaluating with double perturbations.")
-            pertdata.prepare_split(split=args.split, seed=current_seed)
-
+        split_data(args, pertdata, current_seed)
         pertdata.get_dataloader(batch_size=32)
 
         # Train.

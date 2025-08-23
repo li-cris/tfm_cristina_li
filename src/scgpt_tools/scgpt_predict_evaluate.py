@@ -26,21 +26,20 @@ from scgpt.utils import set_seed
 from gears_tools.pertdata import PertData
 
 # own scGPT and metric functions
-from scgpt_tools.config_loader import model_config_loading
+from scgpt_tools.config_loader import model_config_loading, load_pretrained
 from data_utils.metrics import compute_kld, MMDLoss
-from scgpt_tools.config_loader import load_pretrained
 from scgpt_tools.inference import predict, scGPTMetricEvaluator
 from scgpt_tools.data import load_dataset, get_gene_vocab
 
 
 # Global paths for easy changes inside script
 FOUNDATION_MODEL_PATH  = './models/scGPT_human'
-PREDICT_DOUBLE = True
-PREDICT_SINGLE = False
+PREDICT_DOUBLE = False
+PREDICT_SINGLE = True
 MODEL_DIR_PATH = './models'
 RESULT_DIR_PATH = './results'
 DATA_DIR_PATH = './data'
-SINGLE_DATA_ONLY = True
+SINGLE_TRAIN_ONLY = True
 
 @dataclass
 class Options:
@@ -294,7 +293,7 @@ def main(args):
 
 
         # Load data and model
-        pertdata = load_dataset(opts, current_seed, DATA_DIR_PATH, SINGLE_DATA_ONLY)
+        pertdata = load_dataset(opts, current_seed, DATA_DIR_PATH, SINGLE_TRAIN_ONLY)
         gene_ids, vocab = get_gene_vocab(pertdata, opts, FOUNDATION_MODEL_PATH)
         model = load_model(opts, vocab, loaded_model_path, logger)
         model.to(device)
@@ -320,12 +319,12 @@ def main(args):
             mean_result_pred = evaluator.evaluate_double()
 
         elif PREDICT_SINGLE:
-            if 'split' not in pertdata.adata.obs.columns:
+            if 'split_dict' not in pertdata.adata.obs.columns:
                 temp_data_path = os.path.join(DATA_DIR_PATH, args.dataset_name, 'split_columns')
                 split_column_file = f"{args.dataset_name}_split_{args.split}_seed_{str(current_seed)}_split_column.csv"
                 split_column = pd.read_csv(os.path.join(temp_data_path, split_column_file), index_col=0)
 
-                pertdata.adata.obs['split'] = split_column['split']
+                pertdata.adata.obs['split_dict'] = split_column['split']
 
             mean_result_pred = evaluator.evaluate_single()
         else:

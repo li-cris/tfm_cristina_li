@@ -1,11 +1,13 @@
 import os
 import numpy as np
 import pandas as pd
-from gears import PertData
+from gears_tools.pertdata import PertData
+# from gears import PertData
+# important to notice that only 0.0.1 gears cell graph works with scGPT code, and then go back to using own PertData
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 
 
-def load_dataset(opts, seed: int, DATA_DIR_PATH: str, SINGLE_DATA_ONLY: bool = True) -> PertData:
+def load_dataset(opts, seed: int, DATA_DIR_PATH: str, SINGLE_TRAIN_ONLY: bool = True) -> PertData:
     """
     Loads and prepares the perturbation dataset for training and evaluation.
 
@@ -34,6 +36,7 @@ def load_dataset(opts, seed: int, DATA_DIR_PATH: str, SINGLE_DATA_ONLY: bool = T
     if split == 'simulation_single':
         print("Training and evaluating with single perturbation data.")
         pertdata.adata = pertdata.adata[pertdata.adata.obs['condition'].str.contains('ctrl')]
+        print(f"There are {len(pertdata.adata.obs['condition'].unique())} unique conditions in the dataset after filtering.")
         pertdata.prepare_split(split=split, seed=seed)
 
         temp_data_path = os.path.join(DATA_DIR_PATH, dataset_name, 'split_columns')
@@ -50,8 +53,7 @@ def load_dataset(opts, seed: int, DATA_DIR_PATH: str, SINGLE_DATA_ONLY: bool = T
             split_column = pd.read_csv(os.path.join(temp_data_path, split_column_file), index_col=0)
             pertdata.adata.obs['split'] = split_column['split']
 
-
-    elif SINGLE_DATA_ONLY and split != 'simulation_single':
+    elif SINGLE_TRAIN_ONLY and split != 'simulation_single':
         print("Keeping only single perturbation samples in training.")
         pertdata.prepare_split(
             split=split,

@@ -250,6 +250,8 @@ def main(args: argparse.Namespace) -> None:
               data_handler=data_handler)
 
         logging.info(f"Training completed for run {current_run + 1} with seed {current_seed}")
+        logging.info(f"Model and data saved in {savedir}.")
+
         # Predict and evaluate
 
         # Load the model and data for evaluation
@@ -258,7 +260,7 @@ def main(args: argparse.Namespace) -> None:
         # This is to load the appropriate pickle, 'double' by default
         data_path = os.path.join(savedir, data_file_map[opts.sena_eval_mode[0]])
         ptb_path = os.path.join(savedir, "ptb_targets.pkl")
-        logging.info(f"Model and data saved in {savedir}.")
+
 
         # Loading required data from .pkl files for evaluation
         (dataloader, model, ptb_genes, config) = check_and_load_paths(model_path=model_path,

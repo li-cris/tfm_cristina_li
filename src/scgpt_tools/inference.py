@@ -305,7 +305,7 @@ class scGPTMetricEvaluator:
         """
 
         # 
-        split_map = self.adata.obs.set_index('condition')['split'].to_dict()
+        split_map = self.pertdata.adata.obs.set_index('condition')['split_dict'].to_dict()
 
         # If list of single perturbations is not given, evaluate some single perturbations.
         if self.evaluation_list is None:
@@ -344,10 +344,10 @@ class scGPTMetricEvaluator:
                 split_type2 = split_map.get(f'ctrl+{str(single)}', 'Unknown')
 
                 # Get adata for single being evaluated
-                true_geps = self.adata[
-                    (self.adata.obs["condition"] == single) |
-                    (self.adata.obs["condition"] == '+'.join([single, 'ctrl'])) |
-                    (self.adata.obs["condition"] == '+'.join(['ctrl', single]))
+                true_geps = self.pertdata.adata[
+                    (self.pertdata.adata.obs["condition"] == single) |
+                    (self.pertdata.adata.obs["condition"] == '+'.join([single, 'ctrl'])) |
+                    (self.pertdata.adata.obs["condition"] == '+'.join(['ctrl', single]))
                 ]
 
                 pert_list = [single.split("+")] # This should be a list, but it's only one double pert
@@ -355,8 +355,8 @@ class scGPTMetricEvaluator:
                 # Getting some samples for the current double pert
                 set_seeds(self.seed)
                 # Limiting n
-                if true_geps.n_obs>self.pool_size:
-                    n = self.pool_size
+                if true_geps.n_obs>pool_size:
+                    n = pool_size
                     random_indices = np.random.choice(true_geps.n_obs, size=n, replace=False)
                     true_geps = true_geps[random_indices, :]
                 else:
@@ -366,7 +366,7 @@ class scGPTMetricEvaluator:
 
 
                 # Obtaining random sample of ctrl GEP
-                all_ctrl_geps = self.adata[self.adata.obs["condition"] == "ctrl"]
+                all_ctrl_geps = self.pertdata.adata[self.pertdata.adata.obs["condition"] == "ctrl"]
                 random_indices = np.random.choice(
                     all_ctrl_geps.n_obs, size=n, replace=False
                 )
@@ -381,7 +381,7 @@ class scGPTMetricEvaluator:
 
 
                 # Perturbation prediction for pool_size for current double
-                result_pred = predict(model=self.model, pert_list=pert_list, pert_data=self.pert_data,
+                result_pred = predict(model=self.model, pert_list=pert_list, pert_data=self.pertdata,
                                     eval_batch_size=eval_batch_size, include_zero_gene=include_zero_gene, gene_ids=self.gene_ids, pool_size=n)
 
                 for pert in pert_list:

@@ -37,11 +37,10 @@ from scgpt_tools.data import load_dataset
 
 # Set up directories (editable mode)
 FOUNDATION_MODEL_PATH  = './models/scGPT_human'
-PREDICT_DOUBLE = True
 MODEL_DIR_PATH = './models'
 RESULT_DIR_PATH = './results'
 DATA_DIR_PATH = './data'
-SINGLE_DATA_ONLY = True
+SINGLE_TRAIN_ONLY = True
 
 @dataclass
 class Options:
@@ -412,7 +411,7 @@ def train_perturbation_model(
                 return best_model
 
         # Step the learning rate scheduler
-        scheduler.step()    
+        scheduler.step()
 
     return best_model
 
@@ -464,7 +463,8 @@ def main(args: argparse.Namespace) -> None:
         pretrained_model = opts.pretrained_model
 
         # Load dataset
-        pertdata = load_dataset(opts, current_seed, DATA_DIR_PATH, SINGLE_DATA_ONLY)
+        # single or double training is checked in opts: 'simulation' or 'simulation_single'
+        pertdata = load_dataset(opts, current_seed, DATA_DIR_PATH, SINGLE_TRAIN_ONLY)
 
         # Load model based on configuration or new configurations
         model, loaded_model_configs = load_foundation_model(opts, pertdata, FOUNDATION_MODEL_PATH, pretrained_model, logger)
