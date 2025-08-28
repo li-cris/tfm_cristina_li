@@ -24,8 +24,8 @@ DATA_DIR_PATH = "data"
 MODELS_DIR_PATH = "models"
 RESULTS_DIR_PATH = "results"
 
-PREDICT_SINGLE = True
-PREDICT_DOUBLE = False
+PREDICT_SINGLE = False
+PREDICT_DOUBLE = True
 
 # Set to True if training only has single perturbations (train + val) and double perturbations are on test.
 SINGLE_TRAIN_ONLY = True
@@ -234,6 +234,22 @@ def main():
         # Update the seed for each run.
         current_seed = seed + current_run
         print(f"Current run: {current_run + 1}/{args.num_runs}, Seed: {current_seed}")
+
+        # Downsampling
+        set_seeds(current_seed)
+        downsample_conds = pertdata.adata.obs['condition'].unique()
+        downsample_conds = [c for c in downsample_conds if 'ctrl+' in c or '+ctrl' in c]
+        mask = pertdata.adata.obs['condition'].isin(downsample_conds)
+        min_size = pertdata.adata[mask].obs['condition'].value_counts().min()
+        print(f"Downsampling conditions to size {min_size}.")
+        # Sample based on condition with smalles size
+        sampled_idx = (pertdata.adata[mask].obs
+                       .groupby('condition')
+                       .apply(lambda x: x.sample(n=min_size, replace=False))
+                       .index.get_level_values(1))
+        keep_idx = pertdata.adata[~mask].obs.index
+        final_idx = sampled_idx.union(keep_idx)
+        pertdata.adata = pertdata.adata[final_idx]
 
         # This split of train test sizes keeps singles in training and validation and doubles in testing
         print("Preparing data split.")

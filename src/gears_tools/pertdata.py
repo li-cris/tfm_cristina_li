@@ -369,6 +369,7 @@ class PertData:
                                           only_test_set_perts = only_test_set_perts
                                         )
                     self.adata.obs['split'] = adata.obs['split'].astype(str) # New added
+                    print(self.adata.obs['split'].value_counts()) # remove
 
             elif split[:5] == 'combo':
                 # combo perturbation

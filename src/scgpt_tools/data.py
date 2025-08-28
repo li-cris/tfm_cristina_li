@@ -5,6 +5,7 @@ from gears_tools.pertdata import PertData
 # from gears import PertData
 # important to notice that only 0.0.1 gears cell graph works with scGPT code, and then go back to using own PertData
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
+from scgpt.utils import set_seed
 
 
 def load_dataset(opts, seed: int, DATA_DIR_PATH: str, SINGLE_TRAIN_ONLY: bool = True) -> PertData:
@@ -27,6 +28,7 @@ def load_dataset(opts, seed: int, DATA_DIR_PATH: str, SINGLE_TRAIN_ONLY: bool = 
     split = opts.split
     batch_size = opts.batch_size
     eval_batch_size = opts.eval_batch_size
+    downsampling = opts.downsampling
 
     # Loading dataset from directory it is found in
     pertdata = PertData(DATA_DIR_PATH)
@@ -54,6 +56,23 @@ def load_dataset(opts, seed: int, DATA_DIR_PATH: str, SINGLE_TRAIN_ONLY: bool = 
             pertdata.adata.obs['split'] = split_column['split']
 
     elif SINGLE_TRAIN_ONLY and split != 'simulation_single':
+        if downsampling:
+            # Downsampling
+            set_seed(seed)
+            downsample_conds = pertdata.adata.obs['condition'].unique()
+            downsample_conds = [c for c in downsample_conds if 'ctrl+' in c or '+ctrl' in c]
+            mask = pertdata.adata.obs['condition'].isin(downsample_conds)
+            min_size = pertdata.adata[mask].obs['condition'].value_counts().min()
+            print(f"Downsampling conditions to size {min_size}.")
+            # Sample based on condition with smalles size
+            sampled_idx = (pertdata.adata[mask].obs
+                        .groupby('condition')
+                        .apply(lambda x: x.sample(n=min_size, replace=False))
+                        .index.get_level_values(1))
+            keep_idx = pertdata.adata[~mask].obs.index
+            final_idx = sampled_idx.union(keep_idx)
+            pertdata.adata = pertdata.adata[pertdata.adata.obs.index.isin(final_idx)]
+
         print("Keeping only single perturbation samples in training.")
         pertdata.prepare_split(
             split=split,

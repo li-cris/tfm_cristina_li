@@ -50,6 +50,7 @@ class Options:
     """
     # Comman line parameters
     dataset_name: str = "norman_alt"
+    project_name: str = "scgpt"
     split: str = "simulation"
     seed: int = 42
     lr: float = 1e-4
@@ -57,6 +58,7 @@ class Options:
     eval_batch_size: int = 4
     epochs: int = 15
     num_runs: int = 1
+    downsampling: bool = False
 
     # Other parameters that are more likely to be changed
     device: torch.device = field(default=None) # Will be set later unless want to set it here
@@ -156,6 +158,10 @@ def parse_args():
         description='Arguments taken from command line, JSON config or default.'
     )
 
+    parser.add_argument('--project_name', type=str,
+                        default='scgpt',
+                        help='Name of the project.')
+
     parser.add_argument('--dataset_name', type=str,
                         default=json_config.get('dataset_name', 'norman_alt'),
                         help='Exact name of the dataset used.')
@@ -183,10 +189,14 @@ def parse_args():
     parser.add_argument('--epochs', type=int,
                         default=json_config.get('epochs', 10),
                         help='Number of epochs for training.')
-    
+
     parser.add_argument('--num_runs', type=int,
                     default=1,
                     help='Number of training iterations with differente seeds.')
+
+    parser.add_argument('--downsampling',
+                        action='store_true',
+                        help='Downsample dataset to keep equal number of samples for each condition.')
 
     # Parse all arguments (command line overrides JSON/defaults)
     return parser.parse_args(remaining_args)
@@ -424,17 +434,19 @@ def main(args: argparse.Namespace) -> None:
 
     opts = Options(
         dataset_name=args.dataset_name,
+        project_name=args.project_name,
         split=args.split,
         seed=args.seed,
         lr=args.learning_rate,
         batch_size=args.batch_size,
         eval_batch_size=args.eval_batch_size,
         epochs=args.epochs,
-        num_runs=args.num_runs
+        num_runs=args.num_runs,
+        downsampling=args.downsampling
     )
 
 
-    scgpt_savedir = os.path.join(MODEL_DIR_PATH, "scgpt")
+    scgpt_savedir = os.path.join(MODEL_DIR_PATH, opts.project_name)
     print(f"Training scGPT model {opts.num_runs} times with different seeds.")
     for current_seed in range(opts.seed, opts.seed + opts.num_runs):
         print(f"Running training with seed {current_seed}")

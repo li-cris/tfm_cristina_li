@@ -34,8 +34,8 @@ from scgpt_tools.data import load_dataset, get_gene_vocab
 
 # Global paths for easy changes inside script
 FOUNDATION_MODEL_PATH  = './models/scGPT_human'
-PREDICT_DOUBLE = False
-PREDICT_SINGLE = True
+PREDICT_DOUBLE = True
+PREDICT_SINGLE = False
 MODEL_DIR_PATH = './models'
 RESULT_DIR_PATH = './results'
 DATA_DIR_PATH = './data'
@@ -45,6 +45,7 @@ SINGLE_TRAIN_ONLY = True
 class Options:
     # Command line parameters
     dataset_name: str = "norman_alt"
+    project_name: str = "scgpt"
     split: str = "simulation"
     seed: List[int] = field(default_factory=lambda: [42])
     lr: float = 1e-4  # or 1e-4
@@ -129,6 +130,10 @@ def parse_args():
         parents=[pre_parser],
         description='Arguments taken from command line, JSON config or default.'
     )
+
+    parser.add_argument('--project_name', type=str,
+                        default='scgpt',
+                        help='Name of the project.')
 
     parser.add_argument('--dataset_name', type=str,
                         default=json_config.get('dataset_name', 'norman_alt'),
@@ -256,6 +261,7 @@ def main(args):
 
     opts = Options(
         dataset_name=args.dataset_name,
+        project_name=args.project_name,
         split=args.split,
         seed=args.seed,
         lr=args.learning_rate,
@@ -266,13 +272,13 @@ def main(args):
         top_deg=args.top_deg
     )
 
-    scgpt_savedir = os.path.join(MODEL_DIR_PATH, "scgpt")
+    scgpt_savedir = os.path.join(MODEL_DIR_PATH, opts.project_name)
     for current_seed in opts.seed:
         print(f"Running evaluation with seed {current_seed}")
         # Path settings
         loaded_model_name = f"scgpt_{opts.dataset_name}_{opts.split}_seed_{current_seed}"
         loaded_model_path = os.path.join(scgpt_savedir, loaded_model_name)
-        result_savedir = os.path.join(RESULT_DIR_PATH, "scgpt")
+        result_savedir = os.path.join(RESULT_DIR_PATH, opts.project_name)
         os.makedirs(result_savedir, exist_ok=True)
         print(f"saving to {result_savedir}")
 
